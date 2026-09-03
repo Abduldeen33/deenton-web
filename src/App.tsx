@@ -3,6 +3,9 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Rooms from './pages/Rooms';
 import Reservations from './pages/Reservations';
+import Housekeeping from './pages/Housekeeping';
+import MaintenancePage from './pages/MaintenancePage';
+import Reports from './pages/Reports';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const token = localStorage.getItem('deenton_token');
@@ -18,6 +21,9 @@ function App() {
         <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
         <Route path="/rooms" element={<PrivateRoute><Rooms /></PrivateRoute>} />
         <Route path="/reservations" element={<PrivateRoute><Reservations /></PrivateRoute>} />
+        <Route path="/housekeeping" element={<PrivateRoute><Housekeeping /></PrivateRoute>} />
+        <Route path="/maintenance" element={<PrivateRoute><MaintenancePage /></PrivateRoute>} />
+        <Route path="/reports" element={<PrivateRoute><Reports /></PrivateRoute>} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </BrowserRouter>
