@@ -1,10 +1,12 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
-import { isAuthenticated } from './store/auth';
+import Rooms from './pages/Rooms';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
-  return isAuthenticated() ? <>{children}</> : <Navigate to="/login" />;
+  const token = localStorage.getItem('deenton_token');
+  if (!token) return <Navigate to="/login" replace />;
+  return <>{children}</>;
 }
 
 function App() {
@@ -12,15 +14,9 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
-        <Route
-          path="/dashboard"
-          element={
-            <PrivateRoute>
-              <Dashboard />
-            </PrivateRoute>
-          }
-        />
-        <Route path="*" element={<Navigate to="/login" />} />
+        <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+        <Route path="/rooms" element={<PrivateRoute><Rooms /></PrivateRoute>} />
+        <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </BrowserRouter>
   );

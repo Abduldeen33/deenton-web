@@ -1,4 +1,12 @@
-import type { User } from '../types';
+export interface User {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  role: string;
+  propertyCode: string;
+  propertyName: string;
+}
 
 export const getToken = (): string | null => {
   return localStorage.getItem('deenton_token');
