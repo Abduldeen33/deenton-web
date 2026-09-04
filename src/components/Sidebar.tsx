@@ -7,9 +7,9 @@ const menuItems = [
   { path: '/reservations', label: 'Reservations', icon: '📋' },
   { path: '/housekeeping', label: 'Housekeeping', icon: '🧹' },
   { path: '/maintenance', label: 'Maintenance', icon: '🔧' },
+  { path: '/night-audit', label: 'Night Audit', icon: '🌙' },
   { path: '/reports', label: 'Reports', icon: '📊' },
 ];
-
 export default function Sidebar() {
   const navigate = useNavigate();
   const location = useLocation();

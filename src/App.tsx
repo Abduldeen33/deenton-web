@@ -5,6 +5,7 @@ import Rooms from './pages/Rooms';
 import Reservations from './pages/Reservations';
 import Housekeeping from './pages/Housekeeping';
 import MaintenancePage from './pages/MaintenancePage';
+import NightAudit from './pages/NightAudit';
 import Reports from './pages/Reports';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -23,6 +24,7 @@ function App() {
         <Route path="/reservations" element={<PrivateRoute><Reservations /></PrivateRoute>} />
         <Route path="/housekeeping" element={<PrivateRoute><Housekeeping /></PrivateRoute>} />
         <Route path="/maintenance" element={<PrivateRoute><MaintenancePage /></PrivateRoute>} />
+        <Route path="/night-audit" element={<PrivateRoute><NightAudit /></PrivateRoute>} />
         <Route path="/reports" element={<PrivateRoute><Reports /></PrivateRoute>} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
