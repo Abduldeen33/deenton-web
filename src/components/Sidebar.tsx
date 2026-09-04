@@ -7,6 +7,7 @@ const menuItems = [
   { path: '/reservations', label: 'Reservations', icon: '📋' },
   { path: '/housekeeping', label: 'Housekeeping', icon: '🧹' },
   { path: '/maintenance', label: 'Maintenance', icon: '🔧' },
+  { path: '/rates', label: 'Rates', icon: '💰' },
   { path: '/night-audit', label: 'Night Audit', icon: '🌙' },
   { path: '/reports', label: 'Reports', icon: '📊' },
 ];
