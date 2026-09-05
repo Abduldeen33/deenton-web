@@ -8,6 +8,7 @@ const menuItems = [
   { path: '/housekeeping', label: 'Housekeeping', icon: '🧹' },
   { path: '/maintenance', label: 'Maintenance', icon: '🔧' },
   { path: '/rates', label: 'Rates', icon: '💰' },
+  { path: '/expenses', label: 'Expenses', icon: '💸' },
   { path: '/night-audit', label: 'Night Audit', icon: '🌙' },
   { path: '/reports', label: 'Reports', icon: '📊' },
 ];
