@@ -3,6 +3,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Rooms from './pages/Rooms';
 import Reservations from './pages/Reservations';
+import Guests from './pages/Guests';
 import Housekeeping from './pages/Housekeeping';
 import MaintenancePage from './pages/MaintenancePage';
 import NightAudit from './pages/NightAudit';
@@ -24,6 +25,7 @@ function App() {
         <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
         <Route path="/rooms" element={<PrivateRoute><Rooms /></PrivateRoute>} />
         <Route path="/reservations" element={<PrivateRoute><Reservations /></PrivateRoute>} />
+        <Route path="/guests" element={<PrivateRoute><Guests /></PrivateRoute>} />
         <Route path="/housekeeping" element={<PrivateRoute><Housekeeping /></PrivateRoute>} />
         <Route path="/maintenance" element={<PrivateRoute><MaintenancePage /></PrivateRoute>} />
         <Route path="/rates" element={<PrivateRoute><Rates /></PrivateRoute>} />

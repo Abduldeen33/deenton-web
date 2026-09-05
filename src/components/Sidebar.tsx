@@ -5,6 +5,7 @@ const menuItems = [
   { path: '/dashboard', label: 'Dashboard', icon: '🏠' },
   { path: '/rooms', label: 'Rooms', icon: '🛏️' },
   { path: '/reservations', label: 'Reservations', icon: '📋' },
+  { path: '/guests', label: 'Guests', icon: '👤' },
   { path: '/housekeeping', label: 'Housekeeping', icon: '🧹' },
   { path: '/maintenance', label: 'Maintenance', icon: '🔧' },
   { path: '/rates', label: 'Rates', icon: '💰' },
