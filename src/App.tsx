@@ -11,6 +11,7 @@ import NightAudit from './pages/NightAudit';
 import Rates from './pages/Rates';
 import Expenses from './pages/Expenses';
 import Reports from './pages/Reports';
+import AuditLogs from './pages/AuditLogs';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const token = localStorage.getItem('deenton_token');
@@ -34,6 +35,7 @@ function App() {
         <Route path="/expenses" element={<PrivateRoute><Expenses /></PrivateRoute>} />
         <Route path="/night-audit" element={<PrivateRoute><NightAudit /></PrivateRoute>} />
         <Route path="/reports" element={<PrivateRoute><Reports /></PrivateRoute>} />
+        <Route path="/audit-logs" element={<PrivateRoute><AuditLogs /></PrivateRoute>} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </BrowserRouter>
