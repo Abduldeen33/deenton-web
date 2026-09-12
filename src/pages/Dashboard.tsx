@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { getDashboard } from '../api/reports';
 import Layout from '../components/Layout';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import api from '../api/client';
 
 export default function Dashboard() {

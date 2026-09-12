@@ -14,10 +14,20 @@ import Expenses from './pages/Expenses';
 import Inventory from './pages/Inventory';
 import Reports from './pages/Reports';
 import AuditLogs from './pages/AuditLogs';
+import SuperAdmin from './pages/SuperAdmin';
+import { getUser } from './store/auth';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const token = localStorage.getItem('deenton_token');
   if (!token) return <Navigate to="/login" replace />;
+  return <>{children}</>;
+}
+
+function SuperAdminRoute({ children }: { children: React.ReactNode }) {
+  const token = localStorage.getItem('deenton_token');
+  if (!token) return <Navigate to="/login" replace />;
+  const user = getUser();
+  if (user?.role !== 'SUPER_ADMIN') return <Navigate to="/dashboard" replace />;
   return <>{children}</>;
 }
 
@@ -26,6 +36,7 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/super-admin" element={<SuperAdminRoute><SuperAdmin /></SuperAdminRoute>} />
         <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
         <Route path="/rooms" element={<PrivateRoute><Rooms /></PrivateRoute>} />
         <Route path="/reservations" element={<PrivateRoute><Reservations /></PrivateRoute>} />

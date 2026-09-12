@@ -1,5 +1,20 @@
 import api from './client';
-import type { DashboardSummary } from '../types';
+
+export interface DashboardSummary {
+  arrivalsToday: number;
+  departuresToday: number;
+  inHouse: number;
+  todayRevenue: number;
+  outstandingBalance: number;
+  occupancy: {
+    vacant: number;
+    occupied: number;
+    reserved: number;
+    dirty: number;
+    blocked: number;
+    occupancyRate: string;
+  };
+}
 
 export const getDashboard = async (): Promise<DashboardSummary> => {
   const response = await api.get('/reports/dashboard');

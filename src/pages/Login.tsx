@@ -16,7 +16,11 @@ export default function Login() {
     try {
       const response = await login(form.propertyCode, form.email, form.password);
       setAuth(response.access_token, response.user);
-      navigate('/dashboard');
+      if (response.user.role === 'SUPER_ADMIN') {
+        navigate('/super-admin');
+      } else {
+        navigate('/dashboard');
+      }
     } catch (err: any) {
       setError(err.response?.data?.message || 'Invalid credentials');
     } finally {

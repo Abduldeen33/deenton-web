@@ -26,9 +26,6 @@ export default function Reports() {
       .finally(() => setLoading(false));
   }, []);
 
-  const formatDate = (date: string) =>
-    new Date(date).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' });
-
   return (
     <Layout>
       <div className="p-6">
