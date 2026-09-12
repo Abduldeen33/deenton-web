@@ -11,6 +11,7 @@ import MaintenancePage from './pages/MaintenancePage';
 import NightAudit from './pages/NightAudit';
 import Rates from './pages/Rates';
 import Expenses from './pages/Expenses';
+import Inventory from './pages/Inventory';
 import Reports from './pages/Reports';
 import AuditLogs from './pages/AuditLogs';
 
@@ -33,6 +34,7 @@ function App() {
         <Route path="/staff" element={<PrivateRoute><Staff /></PrivateRoute>} />
         <Route path="/housekeeping" element={<PrivateRoute><Housekeeping /></PrivateRoute>} />
         <Route path="/maintenance" element={<PrivateRoute><MaintenancePage /></PrivateRoute>} />
+        <Route path="/inventory" element={<PrivateRoute><Inventory /></PrivateRoute>} />
         <Route path="/rates" element={<PrivateRoute><Rates /></PrivateRoute>} />
         <Route path="/expenses" element={<PrivateRoute><Expenses /></PrivateRoute>} />
         <Route path="/night-audit" element={<PrivateRoute><NightAudit /></PrivateRoute>} />

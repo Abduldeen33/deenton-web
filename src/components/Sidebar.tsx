@@ -11,13 +11,13 @@ const allMenuItems = [
   { path: '/staff', label: 'Staff', icon: '👥', permission: 'view_staff' as const },
   { path: '/housekeeping', label: 'Housekeeping', icon: '🧹', permission: 'update_housekeeping' as const },
   { path: '/maintenance', label: 'Maintenance', icon: '🔧', permission: 'view_maintenance' as const },
+  { path: '/inventory', label: 'Inventory', icon: '📦', permission: 'view_expenses' as const },
   { path: '/rates', label: 'Rates', icon: '💰', permission: 'view_rates' as const },
   { path: '/expenses', label: 'Expenses', icon: '💸', permission: 'view_expenses' as const },
   { path: '/night-audit', label: 'Night Audit', icon: '🌙', permission: 'night_audit' as const },
   { path: '/reports', label: 'Reports', icon: '📊', permission: 'view_reports' as const },
   { path: '/audit-logs', label: 'Audit Logs', icon: '📝', permission: 'view_audit_logs' as const },
 ];
-
 export default function Sidebar() {
   const navigate = useNavigate();
   const location = useLocation();
