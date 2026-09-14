@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import Layout from '../components/Layout';
 import api from '../api/client';
+import { can } from '../store/permissions';
 
 const chargeTypes = ['ACCOMMODATION', 'RESTAURANT', 'LAUNDRY', 'MINIBAR', 'SERVICE', 'TAX', 'OTHER'];
-const paymentMethods = ['CASH', 'CARD', 'BANK_TRANSFER', 'MOBILE_MONEY', 'COMPLIMENTARY'];
+const paymentMethods = ['CASH', 'CARD', 'BANK_TRANSFER', 'ORANGE_MONEY', 'AFRIMONEY', 'MOBILE_MONEY', 'COMPLIMENTARY'];
 
 const chargeColors: any = {
   ACCOMMODATION: 'text-blue-400',
@@ -30,6 +31,8 @@ export default function Billing() {
   const [paymentForm, setPaymentForm] = useState({
     method: 'CASH',
     amount: '',
+    currency: 'USD',
+    exchangeRate: '',
     reference: '',
   });
 
@@ -78,16 +81,35 @@ export default function Billing() {
         folioId: selectedFolio.id,
         method: paymentForm.method,
         amount: Number(paymentForm.amount),
+        currency: paymentForm.currency,
+        ...(paymentForm.currency === 'SLL' && { exchangeRate: Number(paymentForm.exchangeRate) }),
         reference: paymentForm.reference,
       });
       setShowPaymentForm(false);
-      setPaymentForm({ method: 'CASH', amount: '', reference: '' });
+      setPaymentForm({ method: 'CASH', amount: '', currency: 'USD', exchangeRate: '', reference: '' });
       openFolio(selectedFolio.reservationId);
       load();
     } catch (err: any) {
       alert(err.response?.data?.message || 'Failed to record payment');
     }
   };
+
+  const voidPayment = async (payment: any) => {
+    const reason = prompt('Reason for voiding this payment?');
+    if (reason === null) return;
+    try {
+      await api.patch(`/billing/payment/${payment.id}/void`, { reason });
+      openFolio(selectedFolio.reservationId);
+      load();
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to void payment');
+    }
+  };
+
+  const formatAmount = (amount: number, currency = 'USD') =>
+    new Intl.NumberFormat('en-US', {
+      style: 'currency', currency, maximumFractionDigits: currency === 'SLL' ? 0 : 2,
+    }).format(Number(amount));
 
   const formatDate = (date: string) =>
     new Date(date).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -244,7 +266,11 @@ export default function Billing() {
                                 <p className="text-slate-400 text-xs">Ref: {payment.reference}</p>
                               )}
                             </div>
-                            <p className="text-green-400 font-medium">${Number(payment.amount).toFixed(2)}</p>
+                            <div className="text-right">
+                              <p className={payment.isVoided ? 'text-slate-500 line-through' : 'text-green-400 font-medium'}>{formatAmount(payment.amount, payment.currency)}</p>
+                              {payment.currency === 'SLL' && <p className="text-xs text-slate-500">{formatAmount(payment.amountUsd, 'USD')}</p>}
+                              {payment.isVoided ? <p className="text-xs text-red-400">Voided{payment.voidReason ? `: ${payment.voidReason}` : ''}</p> : can('manage_staff') && <button onClick={() => voidPayment(payment)} className="text-xs text-red-400 hover:text-red-300">Void</button>}
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -341,7 +367,15 @@ export default function Billing() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm text-slate-400 mb-1">Amount ($) *</label>
+                <label className="block text-sm text-slate-400 mb-1">Currency</label>
+                <select value={paymentForm.currency} onChange={(e) => setPaymentForm({ ...paymentForm, currency: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm">
+                  <option value="USD">USD — US Dollar</option>
+                  <option value="SLL">SLL — Sierra Leonean Leone</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm text-slate-400 mb-1">Amount ({paymentForm.currency}) *</label>
                 <input
                   required
                   type="number"
@@ -350,14 +384,23 @@ export default function Billing() {
                   className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm"
                 />
               </div>
+              {paymentForm.currency === 'SLL' && (
+                <div>
+                  <label className="block text-sm text-slate-400 mb-1">Exchange Rate (SLL per USD) *</label>
+                  <input required type="number" min="0.0001" value={paymentForm.exchangeRate}
+                    onChange={(e) => setPaymentForm({ ...paymentForm, exchangeRate: e.target.value })}
+                    placeholder="e.g. 23000"
+                    className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm" />
+                </div>
+              )}
               <div>
                 <label className="block text-sm text-slate-400 mb-1">
-                  Reference {paymentForm.method === 'MOBILE_MONEY' && '(Transaction ID) *'}
+                  Reference {['MOBILE_MONEY', 'ORANGE_MONEY', 'AFRIMONEY'].includes(paymentForm.method) && '(Transaction ID) *'}
                 </label>
                 <input
                   value={paymentForm.reference}
                   onChange={(e) => setPaymentForm({ ...paymentForm, reference: e.target.value })}
-                  placeholder={paymentForm.method === 'MOBILE_MONEY' ? 'Orange Money / Afrimoney transaction ID' : 'Optional reference'}
+                  placeholder={['MOBILE_MONEY', 'ORANGE_MONEY', 'AFRIMONEY'].includes(paymentForm.method) ? 'Mobile money transaction ID' : 'Optional reference'}
                   className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm"
                 />
               </div>

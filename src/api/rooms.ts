@@ -19,3 +19,18 @@ export const updateRoomStatus = async (id: string, data: any) => {
   const response = await api.patch(`/rooms/${id}/status`, data);
   return response.data;
 };
+
+export const createRoom = async (data: any) => {
+  const response = await api.post('/rooms', data);
+  return response.data;
+};
+
+export const updateRoom = async (id: string, data: any) => {
+  const response = await api.patch(`/rooms/${id}`, data);
+  return response.data;
+};
+
+export const deleteRoom = async (id: string) => {
+  const response = await api.delete(`/rooms/${id}`);
+  return response.data;
+};

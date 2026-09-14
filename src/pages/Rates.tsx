@@ -44,6 +44,9 @@ export default function Rates() {
   };
 
   const formatDate = (date: string) => new Date(date).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' });
+  const formatMoney = (amount: number, currency: 'USD' | 'SLL') => new Intl.NumberFormat('en-US', {
+    style: 'currency', currency, maximumFractionDigits: currency === 'SLL' ? 0 : 2,
+  }).format(Number(amount));
 
   return (
     <Layout>
@@ -181,7 +184,7 @@ export default function Rates() {
                 <select required value={rateForm.roomTypeId} onChange={(e) => setRateForm({ ...rateForm, roomTypeId: e.target.value })}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 text-sm">
                   <option value="">Select room type</option>
-                  {roomTypes.map((t) => <option key={t.id} value={t.id}>{t.name} (Base: ${t.baseRate})</option>)}
+                  {roomTypes.map((t) => <option key={t.id} value={t.id}>{t.name} (Base: {formatMoney(t.baseRate, 'USD')}{t.baseRateSll ? ` / ${formatMoney(t.baseRateSll, 'SLL')}` : ''})</option>)}
                 </select>
               </div>
               <div>
