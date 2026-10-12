@@ -1,5 +1,23 @@
 @import "tailwindcss";
 
+:root {
+  --anzak-gold: #fdb913;
+  --anzak-gold-dark: #d89c00;
+  --anzak-charcoal: #1b1b1b;
+}
+
+/* Shared ATR Anzak brand palette for existing Tailwind utility classes. */
+.bg-blue-600, .bg-blue-500 { background-color: var(--anzak-gold) !important; }
+.bg-blue-700 { background-color: var(--anzak-gold-dark) !important; }
+.bg-blue-50, .hover\:bg-blue-50:hover { background-color: #fff7d6 !important; }
+.bg-blue-100 { background-color: #ffedaa !important; }
+.border-blue-100, .border-blue-200 { border-color: #f7d567 !important; }
+.border-blue-500, .border-blue-600 { border-color: var(--anzak-gold) !important; }
+.text-blue-600, .text-blue-700, .text-blue-800 { color: #8a6400 !important; }
+.hover\:bg-blue-500:hover, .hover\:bg-blue-600:hover, .hover\:bg-blue-700:hover { background-color: var(--anzak-gold-dark) !important; }
+.focus\:border-blue-400:focus, .focus\:border-blue-500:focus { border-color: var(--anzak-gold) !important; }
+.from-blue-50 { --tw-gradient-from: #fff7d6 var(--tw-gradient-from-position) !important; --tw-gradient-to: rgb(255 247 214 / 0) var(--tw-gradient-to-position) !important; }
+
 * {
   box-sizing: border-box;
 }
@@ -8,4 +26,181 @@ body {
   background-color: #f1f5f9;
   color: #1e293b;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/*
+ * Shared PMS typography. The reservation workspace is the reference density for
+ * all authenticated operations pages: small, readable controls and compact
+ * tables rather than dashboard-sized marketing type.
+ */
+main {
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+main button,
+main input,
+main select,
+main textarea {
+  font-family: inherit;
+  font-size: 12px;
+}
+
+main .text-sm { font-size: 12px; line-height: 1.4; }
+main .text-base { font-size: 12px; line-height: 1.4; }
+main .text-lg { font-size: 14px; line-height: 1.35; }
+main .text-xl { font-size: 16px; line-height: 1.3; }
+main .text-2xl { font-size: 18px; line-height: 1.25; }
+main .text-3xl { font-size: 20px; line-height: 1.2; }
+
+main table th {
+  font-size: 10px;
+  letter-spacing: 0.01em;
+}
+
+/* Billing uses the same compact, light operational treatment as Reservations. */
+.billing-pms {
+  color: #353532;
+  font-size: 11px;
+}
+
+.billing-pms .bg-slate-800,
+.billing-pms .bg-slate-700 {
+  background-color: #fff !important;
+}
+
+.billing-pms .border-slate-700,
+.billing-pms .border-slate-600 {
+  border-color: #deded9 !important;
+}
+
+.billing-pms .text-white { color: #353532 !important; }
+.billing-pms .text-slate-400 { color: #777773 !important; }
+.billing-pms .text-slate-500 { color: #888883 !important; }
+
+.billing-pms button.text-white { color: #fff !important; }
+.billing-pms .bg-slate-700.text-white { color: #353532 !important; }
+
+.billing-pms .rounded-xl,
+.billing-pms .rounded-2xl,
+.billing-pms .rounded-lg { border-radius: 3px; }
+
+.billing-pms .p-6 { padding: 1rem; }
+.billing-pms .p-4 { padding: 0.75rem; }
+.billing-pms .p-12 { padding: 3rem 1rem; }
+.billing-pms .mb-6 { margin-bottom: 1rem; }
+.billing-pms .mb-4 { margin-bottom: 0.75rem; }
+.billing-pms .gap-6 { gap: 0.75rem; }
+
+.billing-pms input,
+.billing-pms select,
+.billing-pms textarea {
+  border-radius: 2px;
+  background-color: #fff !important;
+  color: #353532 !important;
+}
+
+/* Guests and Staff follow the same light, compact PMS standard as Billing. */
+:is(.guests-pms, .staff-pms) {
+  color: #353532;
+  font-size: 11px;
+}
+
+:is(.guests-pms, .staff-pms) .bg-slate-800,
+:is(.guests-pms, .staff-pms) .bg-slate-700 {
+  background-color: #fff !important;
+}
+
+:is(.guests-pms, .staff-pms) .border-slate-700,
+:is(.guests-pms, .staff-pms) .border-slate-600 {
+  border-color: #deded9 !important;
+}
+
+:is(.guests-pms, .staff-pms) .text-white { color: #353532 !important; }
+:is(.guests-pms, .staff-pms) .text-slate-400 { color: #777773 !important; }
+:is(.guests-pms, .staff-pms) .text-slate-500 { color: #888883 !important; }
+
+:is(.guests-pms, .staff-pms) button.text-white { color: #fff !important; }
+:is(.guests-pms, .staff-pms) .bg-slate-700.text-white { color: #353532 !important; }
+
+:is(.guests-pms, .staff-pms) .rounded-xl,
+:is(.guests-pms, .staff-pms) .rounded-2xl,
+:is(.guests-pms, .staff-pms) .rounded-lg { border-radius: 3px; }
+
+:is(.guests-pms, .staff-pms) .p-6 { padding: 1rem; }
+:is(.guests-pms, .staff-pms) .p-4 { padding: 0.75rem; }
+:is(.guests-pms, .staff-pms) .p-12 { padding: 3rem 1rem; }
+:is(.guests-pms, .staff-pms) .mb-6 { margin-bottom: 1rem; }
+:is(.guests-pms, .staff-pms) .mb-4 { margin-bottom: 0.75rem; }
+:is(.guests-pms, .staff-pms) .gap-6 { gap: 0.75rem; }
+
+:is(.guests-pms, .staff-pms) input,
+:is(.guests-pms, .staff-pms) select,
+:is(.guests-pms, .staff-pms) textarea {
+  border-radius: 2px;
+  background-color: #fff !important;
+  color: #353532 !important;
+}
+
+/* Reports share the Reservations workspace typography and panel treatment. */
+:is(.reports-pms, .sales-reports-pms) {
+  color: #353532;
+  font-size: 11px;
+}
+
+:is(.reports-pms, .sales-reports-pms) .bg-slate-800,
+:is(.reports-pms, .sales-reports-pms) .bg-slate-700 {
+  background-color: #fff !important;
+}
+
+:is(.reports-pms, .sales-reports-pms) .border-slate-700,
+:is(.reports-pms, .sales-reports-pms) .border-slate-600 {
+  border-color: #deded9 !important;
+}
+
+:is(.reports-pms, .sales-reports-pms) .text-white { color: #353532 !important; }
+:is(.reports-pms, .sales-reports-pms) .text-slate-400 { color: #777773 !important; }
+:is(.reports-pms, .sales-reports-pms) .text-slate-500 { color: #888883 !important; }
+
+:is(.reports-pms, .sales-reports-pms) .rounded-xl,
+:is(.reports-pms, .sales-reports-pms) .rounded-2xl,
+:is(.reports-pms, .sales-reports-pms) .rounded-lg { border-radius: 3px; }
+
+:is(.reports-pms, .sales-reports-pms) .p-6 { padding: 1rem; }
+:is(.reports-pms, .sales-reports-pms) .p-5 { padding: 0.875rem; }
+:is(.reports-pms, .sales-reports-pms) .p-4 { padding: 0.75rem; }
+:is(.reports-pms, .sales-reports-pms) .mb-6 { margin-bottom: 1rem; }
+:is(.reports-pms, .sales-reports-pms) .mb-4 { margin-bottom: 0.75rem; }
+:is(.reports-pms, .sales-reports-pms) .gap-6 { gap: 0.75rem; }
+
+:is(.reports-pms, .sales-reports-pms) input,
+:is(.reports-pms, .sales-reports-pms) select {
+  border-radius: 2px;
+  background-color: #fff !important;
+  color: #353532 !important;
+}
+
+/* Audit history uses the same dense, table-like PMS presentation. */
+.audit-logs-pms {
+  color: #353532;
+  font-size: 11px;
+}
+
+.audit-logs-pms .bg-slate-800,
+.audit-logs-pms .bg-slate-700 { background-color: #fff !important; }
+.audit-logs-pms .border-slate-700,
+.audit-logs-pms .border-slate-600 { border-color: #deded9 !important; }
+.audit-logs-pms .text-white { color: #353532 !important; }
+.audit-logs-pms .text-slate-400 { color: #777773 !important; }
+.audit-logs-pms .text-slate-500 { color: #888883 !important; }
+.audit-logs-pms button.text-white { color: #fff !important; }
+.audit-logs-pms .rounded-xl,
+.audit-logs-pms .rounded-lg { border-radius: 3px; }
+.audit-logs-pms .p-4 { padding: 0.75rem; }
+.audit-logs-pms .p-12 { padding: 3rem 1rem; }
+.audit-logs-pms .mb-6 { margin-bottom: 1rem; }
+.audit-logs-pms :is(.bg-blue-900, .bg-green-900, .bg-yellow-900, .bg-orange-900, .bg-purple-900, .bg-cyan-900, .bg-red-900) {
+  background-color: #f3f3f0 !important;
+  border-color: #d8d8d2 !important;
+  color: #52524d !important;
 }

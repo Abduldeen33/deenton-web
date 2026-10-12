@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/client';
 import { getUser, clearAuth } from '../store/auth';
+import BrandLogo from '../components/BrandLogo';
 
 export default function SuperAdmin() {
   const [stats, setStats] = useState<any>(null);
@@ -80,17 +81,17 @@ export default function SuperAdmin() {
       <header className="bg-white border-b border-slate-200 px-6 py-4 shadow-sm">
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-              <span className="text-white text-sm font-bold">D</span>
-            </div>
+            <BrandLogo compact className="h-9 w-14 shrink-0" />
             <div>
-              <h1 className="text-lg font-bold text-slate-800">Deenton</h1>
+              <h1 className="text-lg font-bold text-slate-800">Anzak Cloud</h1>
               <p className="text-slate-400 text-xs">Super Admin Portal</p>
             </div>
           </div>
           <div className="flex items-center gap-4">
             <span className="text-sm text-slate-600">{user?.firstName} {user?.lastName}</span>
-            <span className="px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded-lg font-medium">SUPER ADMIN</span>
+            <span className="px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded-lg font-medium">{user?.role === 'CEO' ? 'CEO' : 'SUPER ADMIN'}</span>
+            <button onClick={() => navigate('/staff')} className="px-3 py-2 bg-blue-50 text-blue-700 rounded-lg text-sm">Manage accounts</button>
+            <button onClick={() => navigate('/dashboard')} className="px-3 py-2 bg-slate-100 text-slate-600 rounded-lg text-sm">Hotel operations</button>
             <button
               onClick={() => { clearAuth(); navigate('/login'); }}
               className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-sm"

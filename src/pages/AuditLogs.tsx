@@ -17,6 +17,7 @@ export default function AuditLogs() {
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('');
+  const [selectedLog, setSelectedLog] = useState<any>(null);
 
   const load = (module?: string) => {
     setLoading(true);
@@ -39,14 +40,29 @@ export default function AuditLogs() {
       hour: '2-digit', minute: '2-digit',
     });
 
-  const modules = ['', 'RESERVATIONS', 'BILLING', 'HOUSEKEEPING', 'MAINTENANCE', 'STAFF', 'GUESTS', 'NIGHT_AUDIT', 'EXPENSES'];
+  const modules = [
+    '',
+    ...Array.from(new Set([
+      'RESERVATIONS', 'BILLING', 'HOUSEKEEPING', 'MAINTENANCE', 'STAFF', 'GUESTS',
+      'NIGHT_AUDIT', 'EXPENSES', ...logs.map((log) => log.module).filter(Boolean),
+    ])).sort(),
+  ];
 
   return (
     <Layout>
-      <div className="p-6">
-        <div className="mb-6">
-          <h2 className="text-2xl font-bold text-white">Audit Logs</h2>
-          <p className="text-slate-400 text-sm mt-1">Track all system activity</p>
+      <div className="audit-logs-pms min-h-full bg-[#f8f8f6] p-4">
+        <div className="mb-6 flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-bold text-white">Audit Logs</h2>
+            <p className="text-slate-400 text-sm mt-1">Track all system activity</p>
+          </div>
+          <button
+            onClick={() => load(filter || undefined)}
+            disabled={loading}
+            className="px-3 py-2 bg-slate-800 text-slate-300 hover:bg-slate-700 disabled:opacity-50 rounded-lg border border-slate-700 text-sm"
+          >
+            Refresh
+          </button>
         </div>
 
         {/* Filter */}
@@ -90,13 +106,26 @@ export default function AuditLogs() {
                       )}
                     </div>
                   </div>
-                  <p className="text-slate-500 text-xs shrink-0">{formatDateTime(log.createdAt)}</p>
+                  <div className="flex shrink-0 items-center gap-3">
+                    <p className="text-slate-500 text-xs">{formatDateTime(log.createdAt)}</p>
+                    <button onClick={() => setSelectedLog(log)} className="border border-[#d1d1cc] px-2 py-1 text-[10px] font-medium text-[#454540] hover:bg-[#f4f4f1]">View</button>
+                  </div>
                 </div>
               </div>
             ))}
           </div>
         )}
       </div>
+
+      {selectedLog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="audit-logs-pms w-full max-w-lg border border-[#deded9] bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-[#deded9] px-5 py-3"><div><h3 className="text-sm font-semibold text-[#353532]">Audit Log Details</h3><p className="mt-1 text-[10px] text-[#777773]">{formatDateTime(selectedLog.createdAt)}</p></div><button onClick={() => setSelectedLog(null)} className="text-lg text-[#777773] hover:text-[#353532]">×</button></div>
+            <div className="grid grid-cols-[110px_1fr] gap-y-3 px-5 py-4 text-[11px]"><span className="text-[#777773]">Module</span><span className="font-medium text-[#353532]">{selectedLog.module?.replaceAll('_', ' ')}</span><span className="text-[#777773]">Action</span><span className="font-medium text-[#353532]">{selectedLog.action}</span><span className="text-[#777773]">Description</span><span className="text-[#353532]">{selectedLog.description}</span><span className="text-[#777773]">User</span><span className="text-[#353532]">{selectedLog.userEmail || 'System'}</span><span className="text-[#777773]">IP address</span><span className="text-[#353532]">{selectedLog.ipAddress || 'Not recorded'}</span><span className="text-[#777773]">Log ID</span><span className="break-all text-[#353532]">{selectedLog.id}</span></div>
+            <div className="flex justify-end border-t border-[#deded9] px-5 py-3"><button onClick={() => setSelectedLog(null)} className="border border-[#d1d1cc] px-4 py-2 text-xs text-[#454540] hover:bg-[#f4f4f1]">Close</button></div>
+          </div>
+        </div>
+      )}
     </Layout>
   );
 }

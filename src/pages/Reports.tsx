@@ -28,7 +28,7 @@ export default function Reports() {
 
   return (
     <Layout>
-      <div className="p-6">
+      <div className="reports-pms min-h-full bg-[#f8f8f6] p-4">
         <div className="mb-6">
           <h2 className="text-2xl font-bold text-white">Reports & Analytics</h2>
           <p className="text-slate-400 text-sm mt-1">

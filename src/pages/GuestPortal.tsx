@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import api from '../api/client';
+import BrandLogo from '../components/BrandLogo';
 
 const statusConfig: any = {
   RESERVED: { label: 'Confirmed', color: 'bg-green-100 text-green-700 border-green-200' },
@@ -56,11 +57,9 @@ export default function GuestPortal() {
       <header className="bg-white border-b border-slate-200 px-6 py-4 shadow-sm">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-              <span className="text-white text-sm font-bold">D</span>
-            </div>
+            <BrandLogo compact className="h-9 w-14 shrink-0" />
             <div>
-              <h1 className="text-lg font-bold text-slate-800">Deenton</h1>
+              <h1 className="text-lg font-bold text-slate-800">Anzak Cloud</h1>
               <p className="text-slate-400 text-xs">Guest Portal</p>
             </div>
           </div>
@@ -240,7 +239,7 @@ export default function GuestPortal() {
             </button>
 
             <p className="text-center text-slate-400 text-xs">
-              Powered by Deenton Hotel Management System
+              Powered by Anzak Cloud
             </p>
           </div>
         )}

@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import PaymentReceipt from '../components/PaymentReceipt';
 import Layout from '../components/Layout';
 import api from '../api/client';
-import { can } from '../store/permissions';
+import { can, canOperate } from '../store/permissions';
 
 const chargeTypes = ['ACCOMMODATION', 'RESTAURANT', 'LAUNDRY', 'MINIBAR', 'SERVICE', 'TAX', 'OTHER'];
 const paymentMethods = ['CASH', 'CARD', 'BANK_TRANSFER', 'ORANGE_MONEY', 'AFRIMONEY', 'MOBILE_MONEY', 'COMPLIMENTARY'];
@@ -17,11 +18,17 @@ const chargeColors: any = {
 };
 
 export default function Billing() {
+  const [receipt, setReceipt] = useState('');
+  const [paymentBusy, setPaymentBusy] = useState(false);
+  const paymentLock = useRef(false);
+  const paymentKey = useRef(crypto.randomUUID());
+  const [savedRate, setSavedRate] = useState('');
   const [reservations, setReservations] = useState<any[]>([]);
   const [selectedFolio, setSelectedFolio] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [showChargeForm, setShowChargeForm] = useState(false);
   const [showPaymentForm, setShowPaymentForm] = useState(false);
+  const [showInvoicePreview, setShowInvoicePreview] = useState(false);
   const [chargeForm, setChargeForm] = useState({
     chargeType: 'RESTAURANT',
     description: '',
@@ -31,17 +38,19 @@ export default function Billing() {
   const [paymentForm, setPaymentForm] = useState({
     method: 'CASH',
     amount: '',
-    currency: 'USD',
+    currency: 'SLL',
     exchangeRate: '',
     reference: '',
+    email: '',
   });
 
   const load = () => {
     setLoading(true);
-    api.get('/reservations')
+    if (!can('view_billing')) { setLoading(false); return; }
+    api.get('/billing/reservations')
       .then((res) => {
         const active = res.data.filter((r: any) =>
-          ['ARRIVED', 'STAYOVER', 'DUE_OUT', 'RESERVED'].includes(r.status)
+          ['ARRIVED', 'STAYOVER', 'DUE_OUT', 'RESERVED', 'CHECKED_OUT'].includes(r.status)
         );
         setReservations(active);
       })
@@ -49,15 +58,24 @@ export default function Billing() {
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); api.get('/billing/settings').then(r => { const rate = r.data.posExchangeRate ? String(r.data.posExchangeRate) : ''; setSavedRate(rate); setPaymentForm(p => ({ ...p, exchangeRate: rate })); }).catch(console.error); }, []);
 
   const openFolio = async (reservationId: string) => {
-    const res = await api.get(`/billing/reservation/${reservationId}`);
-    setSelectedFolio(res.data);
+    try {
+      const res = await api.get(`/billing/reservation/${reservationId}`);
+      setSelectedFolio(res.data);
+      setPaymentForm((prev) => ({
+        ...prev,
+        email: res.data.reservation?.guest?.email ?? prev.email,
+      }));
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Unable to load this guest folio');
+    }
   };
 
   const handleAddCharge = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!can('post_charges')) return;
     try {
       await api.post('/billing/charge', {
         folioId: selectedFolio.id,
@@ -76,21 +94,39 @@ export default function Billing() {
 
   const handleAddPayment = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!can('record_payments') || paymentLock.current) return;
+    paymentLock.current = true; setPaymentBusy(true);
     try {
-      await api.post('/billing/payment', {
+      const paymentResult = await api.post('/billing/payment', {
+        idempotencyKey: paymentKey.current,
         folioId: selectedFolio.id,
         method: paymentForm.method,
         amount: Number(paymentForm.amount),
         currency: paymentForm.currency,
-        ...(paymentForm.currency === 'SLL' && { exchangeRate: Number(paymentForm.exchangeRate) }),
+        ...(paymentForm.exchangeRate && { exchangeRate: Number(paymentForm.exchangeRate) }),
         reference: paymentForm.reference,
+        ...(paymentForm.email?.trim() ? { email: paymentForm.email.trim() } : {}),
       });
+      setReceipt(paymentResult.data.id);
       setShowPaymentForm(false);
-      setPaymentForm({ method: 'CASH', amount: '', currency: 'USD', exchangeRate: '', reference: '' });
+      setPaymentForm({ method: 'CASH', amount: '', currency: 'SLL', exchangeRate: savedRate, reference: '', email: selectedFolio.reservation?.guest?.email ?? '' });
       openFolio(selectedFolio.reservationId);
       load();
     } catch (err: any) {
       alert(err.response?.data?.message || 'Failed to record payment');
+    } finally { paymentLock.current = false; setPaymentBusy(false); }
+  };
+
+  const handleSendInvoice = async () => {
+    if (!selectedFolio) return;
+    try {
+      await api.post(`/billing/folio/${selectedFolio.id}/send-invoice`, {
+        email: paymentForm.email || selectedFolio.reservation?.guest?.email,
+      });
+      setShowInvoicePreview(false);
+      alert('Invoice email sent successfully');
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to send invoice email');
     }
   };
 
@@ -117,11 +153,14 @@ export default function Billing() {
   const formatTime = (date: string) =>
     new Date(date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 
+  if (!can('view_billing')) return <Layout><p className="p-6">Your account does not have access to Billing.</p></Layout>;
+
   return (
     <Layout>
-      <div className="p-6">
+      <div className="billing-pms min-h-full bg-[#f8f8f6] p-4">
         <div className="mb-6">
           <h2 className="text-2xl font-bold text-white">Billing & Cashiering</h2>
+          <a href="/front-desk-cash" className="text-sm text-indigo-600 underline">Cash summary & House accounts</a>
           <p className="text-slate-400 text-sm mt-1">Manage guest folios, charges and payments</p>
         </div>
 
@@ -131,10 +170,10 @@ export default function Billing() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Active Reservations List */}
             <div className="lg:col-span-1">
-              <h3 className="text-white font-semibold mb-4">Active Guests</h3>
+              <h3 className="text-white font-semibold mb-4">Guest Folios</h3>
               <div className="space-y-3">
                 {reservations.length === 0 ? (
-                  <p className="text-slate-400 text-sm">No active guests</p>
+                  <p className="text-slate-400 text-sm">No guest folios</p>
                 ) : (
                   reservations.map((res) => (
                     <div
@@ -194,22 +233,39 @@ export default function Billing() {
                       </div>
                     </div>
 
-                    <div className="flex gap-3 mt-4">
-                      <button
+                    <div className="flex gap-3 mt-4 flex-wrap">
+                      {can('post_charges') && <button
                         onClick={() => setShowChargeForm(true)}
                         className="px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white text-sm rounded-lg"
                       >
                         + Add Charge
-                      </button>
-                      <button
+                      </button>}
+                      {can('record_payments') && <button
                         onClick={() => {
-                          setPaymentForm({ ...paymentForm, amount: selectedFolio.balance?.toFixed(2) });
+                          setPaymentForm({
+                            ...paymentForm,
+                            amount: paymentForm.currency === 'SLL' ? (Number(paymentForm.exchangeRate) > 0 ? (selectedFolio.balance * Number(paymentForm.exchangeRate)).toFixed(2) : '') : selectedFolio.balance?.toFixed(2),
+                            email: selectedFolio.reservation?.guest?.email ?? paymentForm.email,
+                          });
+                          paymentKey.current = crypto.randomUUID();
                           setShowPaymentForm(true);
                         }}
                         disabled={selectedFolio.balance <= 0}
                         className="px-4 py-2 bg-green-600 hover:bg-green-500 disabled:bg-slate-700 text-white text-sm rounded-lg"
                       >
                         + Record Payment
+                      </button>}
+                      <button
+                        onClick={() => {
+                          setPaymentForm((prev) => ({
+                            ...prev,
+                            email: selectedFolio.reservation?.guest?.email ?? prev.email,
+                          }));
+                          setShowInvoicePreview(true);
+                        }}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-lg"
+                      >
+                        Send Invoice
                       </button>
                     </div>
                   </div>
@@ -262,6 +318,7 @@ export default function Billing() {
                                 <span className="text-green-400 text-xs font-medium">{payment.method.replace('_', ' ')}</span>
                                 <span className="text-slate-500 text-xs">{formatTime(payment.paymentDate)}</span>
                               </div>
+                              <button type="button" onClick={() => setReceipt(payment.id)} className="text-xs text-indigo-600 underline">{payment.receiptNumber || "View receipt"}</button>
                               {payment.reference && (
                                 <p className="text-slate-400 text-xs">Ref: {payment.reference}</p>
                               )}
@@ -282,6 +339,47 @@ export default function Billing() {
           </div>
         )}
       </div>
+
+      {/* Invoice Preview Modal */}
+      {showInvoicePreview && selectedFolio && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-800 rounded-2xl border border-slate-700 w-full max-w-lg">
+            <div className="p-6 border-b border-slate-700 flex justify-between items-center">
+              <h3 className="text-lg font-bold text-white">Invoice Preview</h3>
+              <button onClick={() => setShowInvoicePreview(false)} className="text-slate-400 hover:text-white">✕</button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <p className="text-slate-400 text-sm mb-1">Guest</p>
+                <p className="text-white font-medium">
+                  {selectedFolio.reservation?.guest?.firstName} {selectedFolio.reservation?.guest?.lastName}
+                </p>
+              </div>
+              <div>
+                <p className="text-slate-400 text-sm mb-1">Reservation</p>
+                <p className="text-white font-medium">#{selectedFolio.reservation?.resNumber}</p>
+              </div>
+              <div>
+                <p className="text-slate-400 text-sm mb-1">Amount due</p>
+                <p className="text-green-400 font-bold text-xl">${selectedFolio.balance?.toFixed(2)}</p>
+              </div>
+              <div>
+                <label className="block text-sm text-slate-400 mb-1">Send to email</label>
+                <input
+                  type="email"
+                  value={paymentForm.email}
+                  onChange={(e) => setPaymentForm({ ...paymentForm, email: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm"
+                />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setShowInvoicePreview(false)} className="flex-1 py-3 bg-slate-700 text-white rounded-lg text-sm">Cancel</button>
+                <button type="button" onClick={handleSendInvoice} disabled={!canOperate()} className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg text-sm">Send Invoice</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add Charge Modal */}
       {showChargeForm && (
@@ -353,7 +451,7 @@ export default function Billing() {
               <h3 className="text-lg font-bold text-white">Record Payment</h3>
               <button onClick={() => setShowPaymentForm(false)} className="text-slate-400 hover:text-white">✕</button>
             </div>
-            <form onSubmit={handleAddPayment} className="p-6 space-y-4">
+            <form aria-busy={paymentBusy} onSubmit={handleAddPayment} className="p-6 space-y-4">
               <div>
                 <label className="block text-sm text-slate-400 mb-1">Payment Method</label>
                 <select
@@ -380,19 +478,31 @@ export default function Billing() {
                   required
                   type="number"
                   value={paymentForm.amount}
+                  min="0.01" step="0.01" max="99999999.99"
                   onChange={(e) => setPaymentForm({ ...paymentForm, amount: e.target.value })}
                   className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm"
                 />
               </div>
-              {paymentForm.currency === 'SLL' && (
+              {(
                 <div>
-                  <label className="block text-sm text-slate-400 mb-1">Exchange Rate (SLL per USD) *</label>
-                  <input required type="number" min="0.0001" value={paymentForm.exchangeRate}
+                  <label className="block text-sm text-slate-400 mb-1">Exchange rate (Leones per 1 USD; required for Leones payments)</label>
+                  <datalist id="billing-rates">{savedRate && <option value={savedRate}>Hotel saved rate</option>}</datalist>
+                  <input list="billing-rates" required={paymentForm.currency === 'SLL'} type="number" step="0.0001" min="0.0001" value={paymentForm.exchangeRate}
                     onChange={(e) => setPaymentForm({ ...paymentForm, exchangeRate: e.target.value })}
                     placeholder="e.g. 23000"
                     className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm" />
                 </div>
               )}
+              <div>
+                <label className="block text-sm text-slate-400 mb-1">Guest invoice email</label>
+                <input
+                  type="email"
+                  value={paymentForm.email}
+                  onChange={(e) => setPaymentForm({ ...paymentForm, email: e.target.value })}
+                  placeholder="guest@email.com"
+                  className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm"
+                />
+              </div>
               <div>
                 <label className="block text-sm text-slate-400 mb-1">
                   Reference {['MOBILE_MONEY', 'ORANGE_MONEY', 'AFRIMONEY'].includes(paymentForm.method) && '(Transaction ID) *'}
@@ -406,12 +516,13 @@ export default function Billing() {
               </div>
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setShowPaymentForm(false)} className="flex-1 py-3 bg-slate-700 text-white rounded-lg text-sm">Cancel</button>
-                <button type="submit" className="flex-1 py-3 bg-green-600 hover:bg-green-500 text-white font-semibold rounded-lg text-sm">Record Payment</button>
+                <button disabled={paymentBusy} type="submit" className="flex-1 py-3 bg-green-600 hover:bg-green-500 disabled:opacity-40 text-white font-semibold rounded-lg text-sm">{paymentBusy ? 'Recording…' : 'Record Payment'}</button>
               </div>
             </form>
           </div>
         </div>
       )}
+      {receipt && <PaymentReceipt id={receipt} onClose={() => setReceipt('')} />}
     </Layout>
   );
 }

@@ -8,18 +8,21 @@ export default function NightAudit() {
   const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
+  const [error, setError] = useState('');
 
   const load = () => {
     setLoading(true);
+    setError('');
     Promise.all([api.get('/night-audit/status'), api.get('/night-audit/history')])
       .then(([s, h]) => { setStatus(s.data); setHistory(h.data); })
-      .catch(console.error)
+      .catch((err) => { setStatus(null); setError(err.response?.data?.message || 'Unable to check night audit. Please retry.'); })
       .finally(() => setLoading(false));
   };
 
   useEffect(() => { load(); }, []);
 
   const runAudit = async () => {
+    if (!can('night_audit') || running || !status) return;
     if (!confirm('Run night audit? This will post room charges for all in-house guests.')) return;
     setRunning(true);
     try {
@@ -39,6 +42,10 @@ export default function NightAudit() {
         <div className="mb-6">
           <h2 className="text-2xl font-bold text-slate-800">Night Audit</h2>
           <p className="text-slate-500 text-sm mt-1">Daily closing process</p>
+          <p className="mt-2 text-sm text-amber-800">New reservations are locked until today's night audit is completed.</p>
+          {!can('night_audit') && <p className="mt-2 text-sm text-slate-600">View-only access. An authorized audit operator must run the audit.</p>}
+          <button onClick={load} disabled={loading || running} className="mt-2 rounded border px-3 py-1 text-sm">Refresh audit status</button>
+          {error && <p role="alert" className="mt-2 text-sm text-red-700">{error}</p>}
         </div>
 
         {loading ? <p className="text-slate-400">Loading...</p> : (
@@ -69,7 +76,7 @@ export default function NightAudit() {
                     </div>
                   </div>
                 </div>
-                {!status?.alreadyRun && can('night_audit') && (
+                {!!status && !status.alreadyRun && can('night_audit') && (
                   <button onClick={runAudit} disabled={running}
                     className="px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-semibold rounded-xl">
                     {running ? 'Running...' : 'Run Night Audit'}

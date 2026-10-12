@@ -4,6 +4,7 @@ export interface User {
   lastName: string;
   email: string;
   role: string;
+  accessLevel?: 'STAFF' | 'SUPERVISOR' | 'ASSISTANT_MANAGER' | 'MANAGER';
   propertyCode: string;
   propertyName: string;
 }

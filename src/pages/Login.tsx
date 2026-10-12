@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { login } from '../api/auth';
 import { setAuth } from '../store/auth';
+import { can } from '../store/permissions';
+import BrandLogo from '../components/BrandLogo';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -16,10 +18,10 @@ export default function Login() {
     try {
       const response = await login(form.propertyCode, form.email, form.password);
       setAuth(response.access_token, response.user);
-      if (response.user.role === 'SUPER_ADMIN') {
+      if (['SUPER_ADMIN', 'CEO'].includes(response.user.role)) {
         navigate('/super-admin');
       } else {
-        navigate('/dashboard');
+        navigate(['GENERAL_MANAGER', 'PURCHASE_MANAGER'].includes(response.user.role) ? '/inventory' : response.user.role === 'KITCHEN' ? (can('view_pos_queue') ? '/pos-queues' : '/workspace') : response.user.role === 'BAR' ? (can('view_pos_queue') ? '/pos-queues' : '/pos') : response.user.role === 'RESTAURANT' ? '/pos' : '/dashboard');
       }
     } catch (err: any) {
       setError(err.response?.data?.message || 'Invalid credentials');
@@ -33,11 +35,9 @@ export default function Login() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
-            <span className="text-white text-3xl font-bold">D</span>
-          </div>
-          <h1 className="text-3xl font-bold text-slate-800">Deenton</h1>
-          <p className="text-slate-500 text-sm mt-1">Hotel Management System</p>
+          <BrandLogo className="mx-auto mb-4 h-auto w-72 max-w-full" />
+          <h1 className="text-3xl font-bold text-slate-800">Anzak Cloud</h1>
+          <p className="text-slate-500 text-sm mt-1">Property Management System</p>
         </div>
 
         {/* Card */}
@@ -98,7 +98,7 @@ export default function Login() {
         </div>
 
         <p className="text-center text-slate-400 text-xs mt-6">
-          Powered by Deenton © 2026
+          Powered by Anzak Cloud © 2026
         </p>
       </div>
     </div>

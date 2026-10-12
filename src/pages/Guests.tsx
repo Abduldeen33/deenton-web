@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react';
+import PaymentReceipt from '../components/PaymentReceipt';
 import Layout from '../components/Layout';
+import { can, canOperate } from '../store/permissions';
 import api from '../api/client';
 
 export default function Guests() {
+  const [receipt, setReceipt] = useState('');
   const [guests, setGuests] = useState<any[]>([]);
   const [selected, setSelected] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -60,7 +63,7 @@ export default function Guests() {
 
   return (
     <Layout>
-      <div className="p-6">
+      <div className="guests-pms min-h-full bg-[#f8f8f6] p-4">
         <div className="mb-6">
           <h2 className="text-2xl font-bold text-white">Guest Profiles</h2>
           <p className="text-slate-400 text-sm mt-1">{guests.length} guests in database</p>
@@ -137,6 +140,7 @@ export default function Guests() {
               <div className="flex gap-2">
                 <button
                   onClick={() => setEditing(!editing)}
+                  disabled={!canOperate() || !can('create_reservations')}
                   className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-lg"
                 >
                   {editing ? 'Cancel Edit' : 'Edit'}
@@ -299,6 +303,9 @@ export default function Guests() {
                               <p className="text-white text-sm font-bold">${res.totalAmount}</p>
                             </div>
                           </div>
+                          <div className="mt-3 space-y-1">
+                            {res.folio?.payments?.map((p: any) => <div key={p.id} className="flex justify-between gap-3 text-xs"><span>{new Date(p.paymentDate).toLocaleDateString()} · {p.method} · {p.currency} {Number(p.amount).toFixed(2)}{p.isVoided ? ' · VOIDED' : ''}</span>{can('view_billing') && <button className="text-indigo-600 underline" onClick={() => setReceipt(p.id)}>{p.receiptNumber || 'Receipt'}</button>}</div>)}
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -309,6 +316,7 @@ export default function Guests() {
           </div>
         </div>
       )}
+      {receipt && <PaymentReceipt id={receipt} onClose={() => setReceipt('')} />}
     </Layout>
   );
 }

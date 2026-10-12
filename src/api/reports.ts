@@ -6,6 +6,26 @@ export interface DashboardSummary {
   inHouse: number;
   todayRevenue: number;
   outstandingBalance: number;
+  roomStatusBreakdown?: Array<{
+    name: string;
+    value: number;
+    color: string;
+  }>;
+  revenueByPaymentMethod?: Array<{
+    name: string;
+    value: number;
+    color: string;
+  }>;
+  guestMixBreakdown?: Array<{
+    name: string;
+    value: number;
+    color: string;
+  }>;
+  guestMetrics?: {
+    adults: number;
+    children: number;
+    totalGuests: number;
+  };
   occupancy: {
     vacant: number;
     occupied: number;

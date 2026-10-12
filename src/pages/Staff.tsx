@@ -1,10 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Layout from '../components/Layout';
 import api from '../api/client';
+import { getUser } from '../store/auth';
+import { can, departmentRoles } from '../store/permissions';
+const accessLevels = ['STAFF', 'SUPERVISOR', 'ASSISTANT_MANAGER', 'MANAGER'];
 
-const roles = ['ADMIN', 'FRONT_DESK', 'HOUSEKEEPING', 'MAINTENANCE', 'ACCOUNTS', 'RESTAURANT', 'IT'];
+const roles = ['ADMIN', 'GENERAL_MANAGER', 'PURCHASE_MANAGER', 'CEO', 'FRONT_DESK', 'HOUSEKEEPING', 'MAINTENANCE', 'ACCOUNTS', 'RESTAURANT', 'KITCHEN', 'BAR', 'IT'];
 
 const roleColors: any = {
+  KITCHEN: 'bg-orange-50 text-orange-700 border-orange-200',
+  BAR: 'bg-blue-50 text-blue-700 border-blue-200',
   ADMIN: 'bg-purple-900 border-purple-700 text-purple-300',
   FRONT_DESK: 'bg-blue-900 border-blue-700 text-blue-300',
   HOUSEKEEPING: 'bg-green-900 border-green-700 text-green-300',
@@ -15,6 +20,14 @@ const roleColors: any = {
 };
 
 export default function Staff() {
+  const platformAdmin = ['SUPER_ADMIN', 'CEO'].includes(getUser()?.role || '');
+  const assignableRoles = platformAdmin ? [...roles, 'SUPER_ADMIN'] : roles.filter(r => r !== 'CEO');
+  const [hotels, setHotels] = useState<{ id: string; name: string; propertyCode: string }[]>([]);
+  const [hotelId, setHotelId] = useState('');
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+  const pendingLoad = useRef<AbortController | null>(null);
+  const staffPath = platformAdmin && hotelId ? `/super-admin/properties/${hotelId}/staff` : '/staff';
   const [staff, setStaff] = useState<any[]>([]);
   const [summary, setSummary] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -23,53 +36,82 @@ export default function Staff() {
   const [newPassword, setNewPassword] = useState('');
   const [form, setForm] = useState({
     firstName: '', lastName: '', email: '',
-    password: '', role: 'FRONT_DESK',
+    password: '', role: 'FRONT_DESK', accessLevel: 'STAFF',
   });
 
   const load = () => {
+    pendingLoad.current?.abort();
+    const controller = new AbortController(); pendingLoad.current = controller;
+    setError(''); setStaff([]); setSummary(null);
     setLoading(true);
     Promise.all([
-      api.get('/staff'),
-      api.get('/staff/summary'),
+      api.get(staffPath, { signal: controller.signal }),
+      api.get(`${staffPath}/summary`, { signal: controller.signal }),
     ])
       .then(([s, sum]) => {
+        if (controller.signal.aborted) return;
         setStaff(s.data);
         setSummary(sum.data);
       })
-      .catch(console.error)
-      .finally(() => setLoading(false));
+      .catch((err) => { if (!controller.signal.aborted) setError(err.response?.data?.message || 'Unable to load staff.'); })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); return () => pendingLoad.current?.abort(); }, [staffPath]);
+  useEffect(() => {
+    if (!platformAdmin) return;
+    const controller = new AbortController();
+    api.get('/super-admin/properties', { signal: controller.signal }).then(r => setHotels(r.data)).catch(err => { if (!controller.signal.aborted) setError(err.response?.data?.message || 'Unable to load hotels.'); });
+    return () => controller.abort();
+  }, [platformAdmin]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (saving) return;
+    setSaving(true);
     try {
-      await api.post('/staff', form);
+      await api.post(staffPath, form);
       setShowForm(false);
-      setForm({ firstName: '', lastName: '', email: '', password: '', role: 'FRONT_DESK' });
+      setForm({ firstName: '', lastName: '', email: '', password: '', role: 'FRONT_DESK', accessLevel: 'STAFF' });
       load();
     } catch (err: any) {
       alert(err.response?.data?.message || 'Failed to create staff');
-    }
+    } finally { setSaving(false); }
   };
 
   const handleToggle = async (id: string) => {
-    await api.patch(`/staff/${id}/toggle-active`);
-    load();
+    if (saving) return;
+    setSaving(true);
+    try { await api.patch(`${staffPath}/${id}/toggle-active`); load(); }
+    catch (err: any) { setError(err.response?.data?.message || 'Unable to update account.'); }
+    finally { setSaving(false); }
+  };
+
+  const changeAccessLevel = async (id: string, accessLevel: string) => {
+    if (saving) return;
+    setSaving(true);
+    try { await api.patch(`${staffPath}/${id}`, { accessLevel }); load(); }
+    catch (err: any) { setError(err.response?.data?.message || 'Unable to update access level.'); }
+    finally { setSaving(false); }
   };
 
   const handleResetPassword = async (id: string) => {
-    if (!newPassword) return;
-    await api.patch(`/staff/${id}/reset-password`, { password: newPassword });
+    if (!newPassword || saving) return;
+    setSaving(true);
+    try {
+    await api.patch(`${staffPath}/${id}/reset-password`, { password: newPassword });
     setShowReset(null);
     setNewPassword('');
     alert('Password reset successfully');
+    } catch (err: any) { setError(err.response?.data?.message || 'Unable to reset password.'); }
+    finally { setSaving(false); }
   };
 
   return (
     <Layout>
-      <div className="p-6">
+      <div className="staff-pms min-h-full bg-[#f8f8f6] p-4">
+        {platformAdmin && <label className="mb-4 block text-sm">Manage accounts for hotel<select aria-label="Account hotel" value={hotelId} disabled={saving} onChange={e => { pendingLoad.current?.abort(); setHotelId(e.target.value); setShowForm(false); setShowReset(null); setNewPassword(''); }} className="ml-3 rounded border bg-white p-2"><option value="">My login hotel ({getUser()?.propertyCode})</option>{hotels.map(h => <option key={h.id} value={h.id}>{h.name} ({h.propertyCode})</option>)}</select></label>}
+        {error && <p role="alert" className="mb-4 text-red-600">{error}</p>}
         <div className="flex justify-between items-center mb-6">
           <div>
             <h2 className="text-2xl font-bold text-white">Staff Management</h2>
@@ -77,6 +119,7 @@ export default function Staff() {
           </div>
           <button
             onClick={() => setShowForm(true)}
+            disabled={!can('manage_staff') || loading || saving}
             className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors"
           >
             + Add Staff
@@ -117,6 +160,8 @@ export default function Staff() {
                         {member.firstName} {member.lastName}
                       </p>
                       <p className="text-slate-400 text-sm">{member.email}</p>
+                      {departmentRoles.includes(member.role) && <label className="block text-xs">Access level<select aria-label={`Access level for ${member.email}`} disabled={saving || !can('manage_staff')} value={member.accessLevel || 'STAFF'} onChange={e => void changeAccessLevel(member.id, e.target.value)} className="ml-2 rounded border bg-white p-1 text-slate-700">{accessLevels.map(level => <option key={level} value={level}>{level === 'STAFF' ? 'Staff / Junior (view only)' : level.replaceAll('_', ' ')}</option>)}</select></label>}
+                      <p className="text-slate-400 text-xs">Last login: {member.lastLoginAt ? new Date(member.lastLoginAt).toLocaleString() : 'Never logged in'}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
@@ -129,12 +174,14 @@ export default function Staff() {
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleToggle(member.id)}
+                        disabled={saving || !can('manage_staff') || (!platformAdmin && ['CEO', 'SUPER_ADMIN'].includes(member.role))}
                         className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white text-xs rounded-lg"
                       >
                         {member.isActive ? 'Deactivate' : 'Activate'}
                       </button>
                       <button
                         onClick={() => setShowReset(member.id)}
+                        disabled={saving || !can('manage_staff') || (!platformAdmin && ['CEO', 'SUPER_ADMIN'].includes(member.role))}
                         className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white text-xs rounded-lg"
                       >
                         Reset Password
@@ -229,14 +276,15 @@ export default function Staff() {
                   onChange={(e) => setForm({ ...form, role: e.target.value })}
                   className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500"
                 >
-                  {roles.map((role) => (
+                  {assignableRoles.map((role) => (
                     <option key={role} value={role}>{role.replace('_', ' ')}</option>
                   ))}
                 </select>
               </div>
               <div className="flex gap-3 pt-2">
+                {departmentRoles.includes(form.role) && <label className="text-sm">Access level<select aria-label="New account access level" value={form.accessLevel} onChange={e => setForm({ ...form, accessLevel: e.target.value })} className="block rounded border bg-white p-2 text-slate-700">{accessLevels.map(level => <option key={level} value={level}>{level === 'STAFF' ? 'Staff / Junior (view only)' : level.replaceAll('_', ' ')}</option>)}</select></label>}
                 <button type="button" onClick={() => setShowForm(false)} className="flex-1 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm">Cancel</button>
-                <button type="submit" className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg text-sm">Add Staff</button>
+                <button type="submit" disabled={saving} className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg text-sm">{saving ? 'Creating account...' : 'Add Staff'}</button>
               </div>
             </form>
           </div>
