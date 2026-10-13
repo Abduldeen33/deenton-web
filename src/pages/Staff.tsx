@@ -5,7 +5,7 @@ import { getUser } from '../store/auth';
 import { can, departmentRoles } from '../store/permissions';
 const accessLevels = ['STAFF', 'SUPERVISOR', 'ASSISTANT_MANAGER', 'MANAGER'];
 
-const roles = ['ADMIN', 'GENERAL_MANAGER', 'PURCHASE_MANAGER', 'CEO', 'FRONT_DESK', 'HOUSEKEEPING', 'MAINTENANCE', 'ACCOUNTS', 'RESTAURANT', 'KITCHEN', 'BAR', 'IT'];
+const roles = ['ADMIN', 'GENERAL_MANAGER', 'ASSISTANT_GENERAL_MANAGER', 'PURCHASE_MANAGER', 'CEO', 'FRONT_DESK', 'HOUSEKEEPING', 'MAINTENANCE', 'ACCOUNTS', 'RESTAURANT', 'KITCHEN', 'BAR', 'IT'];
 
 const roleColors: any = {
   KITCHEN: 'bg-orange-50 text-orange-700 border-orange-200',

@@ -198,9 +198,10 @@ export default function Pos() {
   if (!canUse) return <Layout><p className="p-6">Restaurant POS is available to restaurant staff, bar staff and administrators.</p></Layout>;
 
   function navigateRestaurant(section: string) {
+    if (section === 'qr' && canManage) { openDialog('qr'); return; }
     setActiveSection(section); setShowDashboard(['dashboard','reports'].includes(section));
-    if (section === 'settings' && canConfigure) setShowSetup(true);
-    requestAnimationFrame(() => document.getElementById(['dashboard','reports'].includes(section) ? 'restaurant-dashboard' : section === 'tables' ? 'restaurant-tables' : section === 'menu' ? 'restaurant-menu' : 'restaurant-tools')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    if (['settings','modifiers'].includes(section) && canConfigure) setShowSetup(true);
+    requestAnimationFrame(() => document.getElementById(['dashboard','reports'].includes(section) ? 'restaurant-dashboard' : section === 'tables' ? 'restaurant-tables' : section === 'categories' ? 'restaurant-categories' : section === 'menu' ? 'restaurant-menu' : 'restaurant-tools')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   }
   return <RestaurantPosShell active={activeSection} onNavigate={navigateRestaurant} search={restaurantSearch} onSearch={setRestaurantSearch} busy={busy} hasDraft={cart.length > 0}><div className="text-sm text-slate-700">
     <header className="rp-action-bar">
@@ -214,10 +215,10 @@ export default function Pos() {
     </header>
     {loadError && !!menu.length && <p role="alert" className="mb-4 rounded bg-amber-50 p-3">Offline/cached menu: {loadError} Prices and stock will be validated when you sync. No payments can be recorded offline.</p>}
     {message && <div role="status" className="mb-4 rounded-lg border border-indigo-200 bg-indigo-50 p-3">{message}</div>}
-    {showDashboard && <RestaurantPosDashboard currency={currency} rate={exchangeRate} revision={tableRevision} />}
+    {showDashboard && <RestaurantPosDashboard currency={currency} rate={exchangeRate} revision={tableRevision} onCurrencyChange={setCurrency} />}
     <div className="restaurant-workspace">
     <div className="restaurant-order-column">
-      <section className="rp-category-rail" aria-label="Menu categories"><h3>Categories</h3><div className="rp-category-tabs"><button aria-pressed={categoryFilter === 'ALL'} onClick={() => setCategoryFilter('ALL')}>All</button>{menu.map(c => <button key={c.id} aria-pressed={categoryFilter === c.id} onClick={() => setCategoryFilter(c.id)}>{c.name}</button>)}</div></section>
+      <section id="restaurant-categories" className="rp-category-rail" aria-label="Menu categories"><h3>Categories</h3><div className="rp-category-tabs"><button aria-pressed={categoryFilter === 'ALL'} onClick={() => setCategoryFilter('ALL')}>All</button>{menu.map(c => <button key={c.id} aria-pressed={categoryFilter === c.id} onClick={() => setCategoryFilter(c.id)}>{c.name}</button>)}</div></section>
       <section id="restaurant-menu" className="rp-menu-panel">
         <div className="rp-menu-heading"><h3><UtensilsCrossed size={20}/>Food Menu</h3><input aria-label="Search food menu" placeholder="Search menu items…" value={restaurantSearch} onChange={e => setRestaurantSearch(e.target.value)} /></div>
     <label className="mb-4 block">Service menu<select aria-label="Service menu" className={field + ' max-w-sm'} value={menuType} onChange={e => setMenuType(e.target.value)}><option value="ALL">All enabled menus</option>{Object.entries(menuLabels).map(([key,label]) => <option key={key} value={key}>{label}</option>)}</select></label>

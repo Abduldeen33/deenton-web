@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import api from '../api/client';
 import { posButton as button, posPrimary as primary, posError, posMoney, type Currency } from '../api/pos';
 
-export type ReceiptTarget = { id: string; copy: 'RESTAURANT' | 'KITCHEN' | 'BAR' };
+export type ReceiptTarget = { id: string; copy: 'RESTAURANT' | 'RESTAURANT_TICKET' | 'KITCHEN' | 'BAR' };
 type Receipt = {
   copy: ReceiptTarget['copy']; propertyName: string; orderNumber: string; createdAt: string;
   servedByName?: string | null; paidByName?: string | null; orderType: string; guestName?: string; serviceLocation?: string; roomNumber?: string; notes?: string;
@@ -19,6 +19,14 @@ export default function PosReceipt({ target, onClose }: { target: ReceiptTarget;
   const [receipt, setReceipt] = useState<Receipt | null>(null);
   const [error, setError] = useState('');
   const [retry, setRetry] = useState(0);
+  const [printOpened, setPrintOpened] = useState(false), [confirming, setConfirming] = useState(false), [confirmed, setConfirmed] = useState(false), [printError,setPrintError] = useState('');
+  async function confirmPrinted() {
+    if (!printOpened || confirming || confirmed) return;
+    setConfirming(true);setPrintError('');
+    try { await api.post(`/pos/orders/${encodeURIComponent(target.id)}/printed`,{copy:target.copy,confirmed:true});setConfirmed(true);window.dispatchEvent(new Event('pos-ticket-printed')); }
+    catch(e) {setPrintError(posError(e));}
+    finally {setConfirming(false);}
+  }
   const dialogRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
@@ -27,7 +35,7 @@ export default function PosReceipt({ target, onClose }: { target: ReceiptTarget;
   }, []);
   useEffect(() => {
     const controller = new AbortController();
-    setReceipt(null); setError('');
+    setReceipt(null); setError('');setPrintOpened(false);setConfirmed(false);setPrintError('');
     api.get<Receipt>('/pos/orders/' + encodeURIComponent(target.id) + '/receipt', { params: { copy: target.copy }, signal: controller.signal, timeout: 15000 })
       .then(r => { if (!controller.signal.aborted) setReceipt(r.data); })
       .catch(e => { if (!controller.signal.aborted) setError(posError(e)); });
@@ -48,7 +56,7 @@ export default function PosReceipt({ target, onClose }: { target: ReceiptTarget;
       #pos-receipt-root tr { break-inside: avoid; }
     }`}</style>
     <div ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label="Order receipt" onKeyDown={e => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape' && !confirming) onClose();
       if (e.key === 'Tab') {
         const controls = [...e.currentTarget.querySelectorAll<HTMLButtonElement>('button:not(:disabled)')];
         const first = controls[0], last = controls[controls.length - 1];
@@ -56,9 +64,10 @@ export default function PosReceipt({ target, onClose }: { target: ReceiptTarget;
         else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus(); }
       }
     }} className="receipt-panel max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl bg-white p-6 text-sm text-slate-900 shadow-xl">
-      <div className="no-print mb-5 flex justify-between gap-3"><button className={primary} disabled={!receipt || !!error} onClick={() => window.print()}>Print / Save PDF</button><button className={button} onClick={onClose}>Close receipt</button></div>
+      <div className="no-print mb-5 flex justify-between gap-3"><button className={primary} disabled={!receipt || !!error || confirming} onClick={() => {setPrintOpened(true);window.print();}}>Print / Save PDF</button><button className={button} disabled={confirming} onClick={onClose}>Close receipt</button></div>
+      {receipt && !restaurant && <div className="no-print mb-4 rounded border bg-amber-50 p-3"><p className="text-xs">After the paper ticket prints, confirm below to stop this copy's order alert. Cancelling the print dialog does not stop it.</p><button className={button + ' mt-2'} disabled={!printOpened || confirming || confirmed} onClick={()=>void confirmPrinted()}>{confirmed?'Print confirmed':confirming?'Saving…':'Printed successfully'}</button>{printError && <p role="alert" className="mt-2 text-red-700">{printError} The alert remains active; retry confirmation.</p>}</div>}
       {error ? <div role="alert"><p>{error}</p><button className={button + ' mt-3'} onClick={() => setRetry(n => n + 1)}>Retry receipt</button></div> : !receipt ? <p>Loading receipt…</p> : <>
-        <header className="border-b border-dashed border-slate-400 pb-4 text-center"><p className="font-semibold">{receipt.propertyName}</p><h2 className="mt-2 text-lg font-bold">{restaurant ? refunded ? 'Refund receipt' : cancelled ? 'Cancelled guest check' : paid ? 'Guest receipt' : 'Guest check' : receipt.copy === 'KITCHEN' ? 'Kitchen order slip' : 'Bar order slip'}</h2><p className="mt-2 break-all text-xs">{receipt.orderNumber}</p><p className="mt-1 text-xs">{new Date(receipt.createdAt).toLocaleString()}</p></header>
+        <header className="border-b border-dashed border-slate-400 pb-4 text-center"><p className="font-semibold">{receipt.propertyName}</p><h2 className="mt-2 text-lg font-bold">{restaurant ? refunded ? 'Refund receipt' : cancelled ? 'Cancelled guest check' : paid ? 'Guest receipt' : 'Guest check' : receipt.copy === 'RESTAURANT_TICKET' ? 'Restaurant order ticket' : receipt.copy === 'KITCHEN' ? 'Kitchen order slip' : 'Bar order slip'}</h2><p className="mt-2 break-all text-xs">{receipt.orderNumber}</p><p className="mt-1 text-xs">{new Date(receipt.createdAt).toLocaleString()}</p></header>
         <div className="space-y-1 py-4"><p className="text-lg font-semibold">{receipt.serviceLocation || (receipt.roomNumber ? 'Room ' + receipt.roomNumber : receipt.orderType.replaceAll('_', ' '))}</p>{receipt.roomNumber && receipt.serviceLocation && <p>Room {receipt.roomNumber}</p>}<p>Guest: {receipt.guestName || 'Not recorded'}</p><p>Served by: {receipt.servedByName || 'Not assigned / not recorded'}</p><p className="text-xs">{receipt.orderType.replaceAll('_', ' ')}</p></div>
         <table className="w-full text-left text-xs"><thead><tr className="border-y border-dashed border-slate-400"><th className="py-2 pr-2">Qty</th><th className="py-2">Item</th>{restaurant && <><th className="py-2 text-right">Price</th><th className="py-2 pl-2 text-right">Amount</th></>}</tr></thead><tbody>{receipt.items.map((item, i) => <tr key={i}><td className="py-2 pr-2 align-top font-bold">{item.quantity}</td><td className="py-2 align-top break-words">{item.name}</td>{restaurant && <><td className="py-2 pl-2 text-right align-top">{posMoney(item.price || 0, receipt.currency)}</td><td className="py-2 pl-2 text-right align-top">{posMoney(item.total || 0, receipt.currency)}</td></>}</tr>)}</tbody></table>
         {receipt.notes && <p className="mt-3 whitespace-pre-wrap border-t border-dashed border-slate-400 pt-3">Notes: {receipt.notes}</p>}
@@ -75,7 +84,7 @@ export default function PosReceipt({ target, onClose }: { target: ReceiptTarget;
           {roomPosted && <p className="text-xs">Charged to the guest folio in USD. This is not a cash-payment receipt.</p>}
           {!paid && !roomPosted && !refunded && !cancelled && <p className="text-xs">Payment has not been recorded. This guest check is not proof of payment.</p>}
           <p className="pt-3 text-center text-xs">Thank you for dining with us.</p>
-        </div> : <p className="mt-4 border-t border-dashed border-slate-400 pt-3 text-xs">{receipt.reversalStatus && <strong className="block">STOP PREPARATION — {receipt.reversalStatus.replaceAll('_', ' ')}</strong>}Preparation copy only — not a payment receipt.</p>}
+        </div> : <p className="mt-4 border-t border-dashed border-slate-400 pt-3 text-xs">{receipt.reversalStatus && <strong className="block">STOP PREPARATION — {receipt.reversalStatus.replaceAll('_', ' ')}</strong>}Order ticket only — not a payment receipt.</p>}
         <p className="no-print mt-5 text-xs text-slate-500">Printing does not change order status or record a payment. Choose your printer and paper size in the print dialog.</p>
       </>}
     </div>

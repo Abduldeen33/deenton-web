@@ -32,6 +32,8 @@ type Movement = {
   reason?: string;
   reference?: string;
   recordedBy?: string;
+  recordedByName?: string;
+  issuedTo?: string;
   createdAt: string;
 };
 const label = (value: string) =>
@@ -94,6 +96,7 @@ export default function Inventory() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [movements, setMovements] = useState<Movement[]>([]);
   const [summary, setSummary] = useState({
+    departments: [] as {department:string;totalItems:number;lowStock:number;unpricedItems:number;totalValue:string}[],
     totalItems: 0,
     lowStock: 0,
     outOfStock: 0,
@@ -116,6 +119,7 @@ export default function Inventory() {
   const [draft, setDraft] = useState(emptyItem);
   const [category, setCategory] = useState({ name: '', description: '' });
   const [movement, setMovement] = useState({
+    issuedTo: '',
     quantity: '',
     reason: '',
     reference: '',
@@ -218,6 +222,7 @@ export default function Inventory() {
       categoryId: categories[0]?.id || '',
     });
     setMovement({
+      issuedTo: '',
       quantity: kind === 'COUNT' ? item?.currentStock || '0' : '',
       reason: '',
       reference: '',
@@ -264,6 +269,7 @@ export default function Inventory() {
             {
               quantity: Number(movement.quantity),
               notes: movement.reason,
+              ...(dialog === 'OUT' ? {issuedTo:movement.issuedTo} : {}),
               reference: movement.reference,
             },
           );
@@ -496,7 +502,9 @@ export default function Inventory() {
               </div>
             )}
             <div className="my-4 flex flex-wrap items-center gap-2">
+              {/* Values are calculated on the server from the scoped stock sheet. */}
               {[
+                ['OVERVIEW', 'Department overview'],
                 ['ITEMS', 'Stock sheet'],
                 ['LOW', 'Low stock'],
                 ['HISTORY', 'Movement history'],
@@ -515,7 +523,7 @@ export default function Inventory() {
                 className={field + ' max-w-sm'}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                disabled={tab === 'HISTORY'}
+                disabled={tab === 'HISTORY' || tab === 'OVERVIEW'}
               />
               {access.canWrite && (
                 <>
@@ -540,7 +548,14 @@ export default function Inventory() {
               <p className="p-8">Loading department inventory…</p>
             ) : (
               !loadError &&
-              (tab === 'HISTORY' ? (
+              (tab === 'OVERVIEW' ? (
+                <section aria-label="Department stock overview" className="overflow-auto rounded border bg-white">
+                  <p className="p-3 text-xs text-slate-500">Current stock value = quantity × cost price. Missing costs are excluded from value totals. Quantities in different units are not added together.</p>
+                  <table className="w-full border-collapse text-xs"><thead><tr>{['Department','Items','Low stock','Items without cost','Stock value USD','Stock value Leones'].map(h=><th className={cell} key={h}>{h}</th>)}</tr></thead><tbody>
+                    {(summary.departments || []).map(d=><tr key={d.department}><td className={cell}>{label(d.department)}</td><td className={cell}>{d.totalItems}</td><td className={cell}>{d.lowStock}</td><td className={cell}>{d.unpricedItems}</td><td className={cell}>{money(d.totalValue,'USD')}</td><td className={cell}>{money(d.totalValue,'SLL')}</td></tr>)}
+                  </tbody><tfoot><tr><th className={cell}>Total</th><td className={cell}>{summary.totalItems}</td><td className={cell}>{summary.lowStock}</td><td className={cell}>{(summary.departments || []).reduce((n,d)=>n+d.unpricedItems,0)}</td><td className={cell}>{money(summary.totalValue,'USD')}</td><td className={cell}>{money(summary.totalValue,'SLL')}</td></tr></tfoot></table>
+                </section>
+              ) : tab === 'HISTORY' ? (
                 <>
                   <div className="max-h-[65vh] overflow-auto border">
                     <table className="w-full border-collapse text-xs">
@@ -552,11 +567,14 @@ export default function Inventory() {
                             'Item',
                             'Type',
                             'Quantity',
+                            'Unit',
                             'Before',
                             'After',
                             'Reason / notes',
                             'Reference',
                             'Recorded by account ID',
+                            'Recorded by name',
+                            'Issued to / received by',
                           ].map((h) => (
                             <th key={h} className={cell}>
                               {h}
@@ -574,6 +592,7 @@ export default function Inventory() {
                             <td className={cell}>{t.item.name}</td>
                             <td className={cell}>{t.type}</td>
                             <td className={cell}>{Number(t.quantity)}</td>
+                            <td className={cell}>{t.item.unit}</td>
                             <td className={cell}>{t.stockBefore ?? '—'}</td>
                             <td className={cell}>{t.stockAfter ?? '—'}</td>
                             <td className={cell}>{t.reason || t.notes}</td>
@@ -581,6 +600,8 @@ export default function Inventory() {
                             <td className={cell}>
                               {t.recordedBy || 'Not recorded'}
                             </td>
+                            <td className={cell}>{t.recordedByName || 'Not recorded'}</td>
+                            <td className={cell}>{t.issuedTo || 'Not recorded'}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -1022,6 +1043,8 @@ export default function Inventory() {
                         }
                       />
                     </label>
+                    {dialog === 'OUT' && <label className="block text-xs">Issued to / received by<input aria-label="Stock recipient" className={field} required minLength={2} maxLength={150} value={movement.issuedTo} onChange={e=>setMovement(v=>({...v,issuedTo:e.target.value}))}/></label>}
+                    <p className="text-xs text-slate-600">Calculated balance after this record: {movement.quantity !== '' && selected ? (dialog === 'COUNT' ? Number(movement.quantity) : Number(selected.currentStock) + (dialog === 'IN' ? 1 : -1) * Number(movement.quantity)).toLocaleString('en-US',{maximumFractionDigits:2}) : '—'} {selected?.unit}. The server checks the latest balance before saving.</p>
                     <label className="block text-xs">
                       Reference
                       <input
