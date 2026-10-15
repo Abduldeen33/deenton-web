@@ -9,6 +9,8 @@ import { clearAuth, getUser } from '../store/auth';
 import { can } from '../store/permissions';
 
 const allMenuItems = [
+  { path: '/service-payments', label: 'Front Desk payments', icon: '', permission: 'view_service_payments' as const },
+  { path: '/finance', label: 'Finance', icon: '', permission: 'view_finance' as const },
   { path: '/pos-queues', label: 'Order queues', icon: '', permission: 'view_pos_queue' as const },
   { path: '/ai-assistant', label: 'AI Assistant', icon: '', permission: 'view_reports' as const },
   { path: '/marketing', label: 'Automated Marketing', icon: '', permission: 'view_marketing' as const },
@@ -39,7 +41,9 @@ const sidebarIcons: Record<string, ComponentType<{ size?: number; strokeWidth?: 
   '/rooms': BedDouble,
   '/reservations': CalendarDays,
   '/billing': CreditCard,
+  '/finance': Wallet,
   '/front-desk-cash': Wallet,
+  '/service-payments': Wallet,
   '/guests': User,
   '/staff': Users,
   '/housekeeping': Sparkles,

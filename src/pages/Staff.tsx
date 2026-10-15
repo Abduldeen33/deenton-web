@@ -4,8 +4,9 @@ import api from '../api/client';
 import { getUser } from '../store/auth';
 import { can, departmentRoles } from '../store/permissions';
 const accessLevels = ['STAFF', 'SUPERVISOR', 'ASSISTANT_MANAGER', 'MANAGER'];
+const accessLevelLabel = (level: string, role: string) => level === 'MANAGER' ? 'Department Manager / Head of Department' : level === 'STAFF' ? (role === 'ACCOUNTS' ? 'Cashier' : 'Staff / Junior (view only)') : level.replaceAll('_', ' ');
 
-const roles = ['ADMIN', 'GENERAL_MANAGER', 'ASSISTANT_GENERAL_MANAGER', 'PURCHASE_MANAGER', 'CEO', 'FRONT_DESK', 'HOUSEKEEPING', 'MAINTENANCE', 'ACCOUNTS', 'RESTAURANT', 'KITCHEN', 'BAR', 'IT'];
+const roles = ['ADMIN', 'GENERAL_MANAGER', 'ASSISTANT_GENERAL_MANAGER', 'PURCHASE_MANAGER', 'DIRECTOR_OF_FINANCE', 'STOREKEEPING_MANAGER', 'CEO', 'FRONT_DESK', 'HOUSEKEEPING', 'MAINTENANCE', 'ACCOUNTS', 'RESTAURANT', 'KITCHEN', 'BAR', 'IT'];
 
 const roleColors: any = {
   KITCHEN: 'bg-orange-50 text-orange-700 border-orange-200',
@@ -34,6 +35,8 @@ export default function Staff() {
   const [showForm, setShowForm] = useState(false);
   const [showReset, setShowReset] = useState<string | null>(null);
   const [newPassword, setNewPassword] = useState('');
+  const [editingName, setEditingName] = useState<string | null>(null);
+  const [staffName, setStaffName] = useState({ firstName: '', lastName: '' });
   const [form, setForm] = useState({
     firstName: '', lastName: '', email: '',
     password: '', role: 'FRONT_DESK', accessLevel: 'STAFF',
@@ -58,6 +61,7 @@ export default function Staff() {
   };
 
   useEffect(() => { load(); return () => pendingLoad.current?.abort(); }, [staffPath]);
+  useEffect(() => { setEditingName(null); }, [staffPath]);
   useEffect(() => {
     if (!platformAdmin) return;
     const controller = new AbortController();
@@ -92,6 +96,26 @@ export default function Staff() {
     setSaving(true);
     try { await api.patch(`${staffPath}/${id}`, { accessLevel }); load(); }
     catch (err: any) { setError(err.response?.data?.message || 'Unable to update access level.'); }
+    finally { setSaving(false); }
+  };
+
+  const saveName = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!platformAdmin || !editingName || saving) return;
+    setSaving(true); setError('');
+    try {
+      await api.patch(`${staffPath}/${editingName}`, { firstName: staffName.firstName.trim(), lastName: staffName.lastName.trim() });
+      setEditingName(null); load();
+    } catch (err: any) { setError(err.response?.data?.message || 'Unable to edit staff name.'); }
+    finally { setSaving(false); }
+  };
+
+  const deleteStaff = async (member: any) => {
+    if (!platformAdmin || saving || member.id === getUser()?.id) return;
+    if (!window.confirm(`Permanently delete the login account for ${member.firstName} ${member.lastName} (${member.email})? This cannot be undone. Transaction records remain, but some reports may no longer resolve this staff member's name. Deactivate instead if you need to retain the account history.`)) return;
+    setSaving(true); setError('');
+    try { await api.delete(`${staffPath}/${member.id}`); setEditingName(null); setShowReset(null); load(); }
+    catch (err: any) { setError(err.response?.data?.message || 'Unable to delete staff account.'); }
     finally { setSaving(false); }
   };
 
@@ -150,8 +174,8 @@ export default function Staff() {
           <div className="space-y-3">
             {staff.map((member) => (
               <div key={member.id} className="bg-slate-800 border border-slate-700 rounded-xl p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-4">
                     <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold">
                       {member.firstName?.[0]}{member.lastName?.[0]}
                     </div>
@@ -160,18 +184,18 @@ export default function Staff() {
                         {member.firstName} {member.lastName}
                       </p>
                       <p className="text-slate-400 text-sm">{member.email}</p>
-                      {departmentRoles.includes(member.role) && <label className="block text-xs">Access level<select aria-label={`Access level for ${member.email}`} disabled={saving || !can('manage_staff')} value={member.accessLevel || 'STAFF'} onChange={e => void changeAccessLevel(member.id, e.target.value)} className="ml-2 rounded border bg-white p-1 text-slate-700">{accessLevels.map(level => <option key={level} value={level}>{level === 'STAFF' ? 'Staff / Junior (view only)' : level.replaceAll('_', ' ')}</option>)}</select></label>}
+                      {departmentRoles.includes(member.role) && <label className="block text-xs">Access level<select aria-label={`Access level for ${member.email}`} disabled={saving || !can('manage_staff')} value={member.accessLevel || 'STAFF'} onChange={e => void changeAccessLevel(member.id, e.target.value)} className="ml-2 rounded border bg-white p-1 text-slate-700">{accessLevels.map(level => <option key={level} value={level}>{accessLevelLabel(level, member.role)}</option>)}</select></label>}
                       <p className="text-slate-400 text-xs">Last login: {member.lastLoginAt ? new Date(member.lastLoginAt).toLocaleString() : 'Never logged in'}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-3">
                     <span className={`px-2 py-1 rounded border text-xs font-medium ${roleColors[member.role]}`}>
                       {member.role.replace('_', ' ')}
                     </span>
                     <span className={`px-2 py-1 rounded text-xs ${member.isActive ? 'text-green-400' : 'text-red-400'}`}>
                       {member.isActive ? '● Active' : '● Inactive'}
                     </span>
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                       <button
                         onClick={() => handleToggle(member.id)}
                         disabled={saving || !can('manage_staff') || (!platformAdmin && ['CEO', 'SUPER_ADMIN'].includes(member.role))}
@@ -189,6 +213,20 @@ export default function Staff() {
                     </div>
                   </div>
                 </div>
+
+                {platformAdmin && <div aria-label={`Account actions for ${member.email}`} className="mt-3 flex flex-wrap items-center gap-3 border-t border-slate-700 pt-3">
+                  <span className="text-xs text-slate-500">CEO / Super Admin actions</span>
+                  <button type="button" disabled={saving} onClick={() => { setEditingName(member.id); setStaffName({ firstName: member.firstName, lastName: member.lastName }); }} className="px-4 py-2 bg-slate-700 text-white text-sm rounded-lg">Edit name</button>
+                  <button type="button" disabled={saving || member.id === getUser()?.id} title={member.id === getUser()?.id ? 'You cannot delete your own account' : 'Permanently delete this staff login'} onClick={() => void deleteStaff(member)} className="px-4 py-2 bg-red-700 hover:bg-red-800 text-white text-sm font-semibold rounded-lg disabled:opacity-50">Delete staff</button>
+                  {member.id === getUser()?.id && <span className="text-xs text-slate-500">Your signed-in account cannot be deleted.</span>}
+                </div>}
+
+                {platformAdmin && editingName === member.id && <form onSubmit={saveName} className="mt-3 flex flex-wrap items-end gap-3 border-t border-slate-700 pt-3">
+                  <label className="text-sm">First name<input aria-label="Edit staff first name" required maxLength={100} disabled={saving} value={staffName.firstName} onChange={e => setStaffName({ ...staffName, firstName: e.target.value })} className="block rounded border bg-white p-2 text-slate-800" /></label>
+                  <label className="text-sm">Last name<input aria-label="Edit staff last name" required maxLength={100} disabled={saving} value={staffName.lastName} onChange={e => setStaffName({ ...staffName, lastName: e.target.value })} className="block rounded border bg-white p-2 text-slate-800" /></label>
+                  <button type="submit" disabled={saving || !staffName.firstName.trim() || !staffName.lastName.trim()} className="rounded bg-blue-600 px-3 py-2 text-sm text-white">Save name</button>
+                  <button type="button" disabled={saving} onClick={() => setEditingName(null)} className="rounded border px-3 py-2 text-sm">Cancel name edit</button>
+                </form>}
 
                 {/* Reset Password inline */}
                 {showReset === member.id && (
@@ -282,7 +320,7 @@ export default function Staff() {
                 </select>
               </div>
               <div className="flex gap-3 pt-2">
-                {departmentRoles.includes(form.role) && <label className="text-sm">Access level<select aria-label="New account access level" value={form.accessLevel} onChange={e => setForm({ ...form, accessLevel: e.target.value })} className="block rounded border bg-white p-2 text-slate-700">{accessLevels.map(level => <option key={level} value={level}>{level === 'STAFF' ? 'Staff / Junior (view only)' : level.replaceAll('_', ' ')}</option>)}</select></label>}
+                {departmentRoles.includes(form.role) && <label className="text-sm">Access level<select aria-label="New account access level" value={form.accessLevel} onChange={e => setForm({ ...form, accessLevel: e.target.value })} className="block rounded border bg-white p-2 text-slate-700">{accessLevels.map(level => <option key={level} value={level}>{accessLevelLabel(level, form.role)}</option>)}</select></label>}
                 <button type="button" onClick={() => setShowForm(false)} className="flex-1 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm">Cancel</button>
                 <button type="submit" disabled={saving} className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg text-sm">{saving ? 'Creating account...' : 'Add Staff'}</button>
               </div>

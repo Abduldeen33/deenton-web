@@ -11,6 +11,8 @@ export function canOperate(): boolean {
 const writePermissions = ['block_rooms', 'update_housekeeping', 'create_reservations', 'checkin_checkout', 'post_charges', 'record_payments', 'manage_staff', 'manage_rates', 'manage_expenses', 'night_audit', 'manage_maintenance'];
 
 export type Permission =
+  | 'view_service_payments'
+  | 'view_finance'
   | 'view_inventory'
   | 'view_housekeeping'
   | 'view_night_audit'
@@ -45,6 +47,8 @@ const rolePermissions: Record<string, Permission[]> = {
   GENERAL_MANAGER: ['view_inventory'],
   ASSISTANT_GENERAL_MANAGER: ['view_inventory'],
   PURCHASE_MANAGER: ['view_inventory'],
+  DIRECTOR_OF_FINANCE: ['view_inventory', 'view_finance', 'view_billing', 'record_payments', 'view_expenses', 'manage_expenses'],
+  STOREKEEPING_MANAGER: ['view_inventory'],
   ADMIN: [
     'view_dashboard', 'view_rooms', 'block_rooms', 'update_housekeeping',
     'view_reservations', 'create_reservations', 'checkin_checkout',
@@ -94,7 +98,9 @@ const rolePermissions: Record<string, Permission[]> = {
 export function can(permission: Permission): boolean {
   const user = getUser();
   if (!user) return false;
-  if (permission === 'record_payments' && user.role === 'FRONT_DESK') return true;
+  if (permission === 'view_service_payments') return ['ADMIN','SUPER_ADMIN','CEO','GENERAL_MANAGER','DIRECTOR_OF_FINANCE','FRONT_DESK','ACCOUNTS'].includes(user.role);
+  if (permission === 'view_finance') return ['ADMIN', 'SUPER_ADMIN', 'CEO', 'ACCOUNTS', 'DIRECTOR_OF_FINANCE'].includes(user.role);
+  if (permission === 'record_payments' && ['FRONT_DESK', 'ACCOUNTS'].includes(user.role)) return true;
   if (permission === 'create_reservations' && user.role === 'FRONT_DESK') return true;
   if (permission === 'night_audit') return ['ADMIN', 'SUPER_ADMIN', 'CEO', 'FRONT_DESK', 'ACCOUNTS'].includes(user.role);
   if (permission === 'view_pos_queue' && user.role === 'KITCHEN') return true;
@@ -102,7 +108,7 @@ export function can(permission: Permission): boolean {
   if (permission === 'view_night_audit') return ['ADMIN', 'SUPER_ADMIN', 'CEO', 'ACCOUNTS', 'FRONT_DESK'].includes(user.role);
   if (permission === 'view_marketing' || permission === 'view_channels') return ['ADMIN', 'SUPER_ADMIN', 'CEO'].includes(user.role);
   if (permission === 'view_housekeeping') return ['ADMIN', 'SUPER_ADMIN', 'CEO', 'HOUSEKEEPING'].includes(user.role);
-  if (permission === 'view_inventory') return ['ADMIN', 'SUPER_ADMIN', 'GENERAL_MANAGER', 'ASSISTANT_GENERAL_MANAGER', 'PURCHASE_MANAGER', 'CEO'].includes(user.role) || (departmentRoles.includes(user.role) && ['MANAGER', 'ASSISTANT_MANAGER'].includes(user.accessLevel || 'STAFF'));
+  if (permission === 'view_inventory') return ['ADMIN', 'SUPER_ADMIN', 'GENERAL_MANAGER', 'ASSISTANT_GENERAL_MANAGER', 'PURCHASE_MANAGER', 'DIRECTOR_OF_FINANCE', 'STOREKEEPING_MANAGER', 'CEO'].includes(user.role) || (departmentRoles.includes(user.role) && user.accessLevel === 'MANAGER');
   if (!canOperate() && writePermissions.includes(permission)) return false;
   const perms = rolePermissions[user.role === 'CEO' ? 'SUPER_ADMIN' : user.role] ?? [];
   return perms.includes(permission);

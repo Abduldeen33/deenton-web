@@ -1,176 +1,38 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Layout from '../components/Layout';
 import api from '../api/client';
 import { can } from '../store/permissions';
-
 const categories = ['Utilities','Salaries','Food & Beverage','Maintenance','Cleaning Supplies','Laundry','Marketing','Transport','Office Supplies','Security','Internet & Phone','Other'];
-
+const methods = ['CASH','CARD','BANK_TRANSFER','ORANGE_MONEY','AFRIMONEY','MOBILE_MONEY'];
+const empty = () => ({ category:'Utilities',description:'',amount:'',currency:'SLL',exchangeRate:'',paidTo:'',paymentMethod:'CASH',expenseDate:new Date().toISOString().slice(0,10) });
+const fmt = (n: unknown) => Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const input = 'block w-full rounded border border-slate-300 bg-white p-2 text-sm';
+const button = 'rounded border border-slate-300 px-3 py-2 text-sm disabled:opacity-50';
 export default function Expenses() {
-  const [data, setData] = useState<any>(null);
-  const [monthly, setMonthly] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [form, setForm] = useState({
-    category: 'Utilities', description: '', amount: '', paidTo: '',
-    paymentMethod: 'CASH', expenseDate: new Date().toISOString().split('T')[0],
-  });
-
-  const load = () => {
-    setLoading(true);
-    Promise.all([api.get('/expenses'), api.get('/expenses/monthly')])
-      .then(([exp, mon]) => { setData(exp.data); setMonthly(mon.data); })
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  };
-
-  useEffect(() => { load(); }, []);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSubmitting(true);
-    try {
-      await api.post('/expenses', { ...form, amount: Number(form.amount) });
-      setShowForm(false);
-      setForm({ category: 'Utilities', description: '', amount: '', paidTo: '', paymentMethod: 'CASH', expenseDate: new Date().toISOString().split('T')[0] });
-      load();
-    } catch (err: any) { alert(err.response?.data?.message || 'Failed'); }
-    finally { setSubmitting(false); }
-  };
-
-  const formatDate = (date: string) => new Date(date).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' });
-
-  return (
-    <Layout>
-      <div className="p-6">
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <h2 className="text-2xl font-bold text-slate-800">Expenses</h2>
-            <p className="text-slate-500 text-sm mt-1">Track operational costs</p>
-          </div>
-          {can('manage_expenses') && (
-            <button onClick={() => setShowForm(true)}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg">
-              + Record Expense
-            </button>
-          )}
-        </div>
-
-        {loading ? <p className="text-slate-400">Loading...</p> : (
-          <>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-              <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
-                <p className="text-slate-500 text-sm mb-1">This Month</p>
-                <p className="text-3xl font-bold text-red-500">${monthly?.total?.toLocaleString() ?? '0'}</p>
-                <p className="text-slate-400 text-xs mt-1">{monthly?.month}</p>
-              </div>
-              <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
-                <p className="text-slate-500 text-sm mb-1">Total Expenses</p>
-                <p className="text-3xl font-bold text-slate-800">${data?.total?.toLocaleString() ?? '0'}</p>
-                <p className="text-slate-400 text-xs mt-1">{data?.expenses?.length ?? 0} records</p>
-              </div>
-              <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
-                <p className="text-slate-500 text-sm mb-2">By Category</p>
-                {data?.byCategory && Object.entries(data.byCategory).slice(0, 3).map(([cat, amt]: any) => (
-                  <div key={cat} className="flex justify-between text-sm mb-1">
-                    <span className="text-slate-500">{cat}</span>
-                    <span className="text-slate-800 font-medium">${amt.toLocaleString()}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-              <div className="p-4 border-b border-slate-100">
-                <h3 className="text-slate-800 font-semibold">All Expenses</h3>
-              </div>
-              {data?.expenses?.length === 0 ? (
-                <div className="p-12 text-center text-slate-400">No expenses recorded yet</div>
-              ) : (
-                data?.expenses?.map((expense: any, i: number) => (
-                  <div key={expense.id} className={`flex justify-between items-center p-4 ${i < data.expenses.length - 1 ? 'border-b border-slate-100' : ''}`}>
-                    <div>
-                      <div className="flex items-center gap-3 mb-1">
-                        <span className="px-2 py-0.5 bg-slate-100 text-slate-600 text-xs rounded">{expense.category}</span>
-                        <span className="text-slate-400 text-xs">{formatDate(expense.expenseDate)}</span>
-                      </div>
-                      <p className="text-slate-800 font-medium">{expense.description}</p>
-                      {expense.paidTo && <p className="text-slate-500 text-sm">Paid to: {expense.paidTo}</p>}
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <p className="text-red-500 font-bold">${Number(expense.amount).toLocaleString()}</p>
-                      {can('manage_expenses') && (
-                        <button onClick={async () => { await api.delete(`/expenses/${expense.id}`); load(); }}
-                          className="text-slate-300 hover:text-red-400 text-sm">✕</button>
-                      )}
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </>
-        )}
-      </div>
-
-      {showForm && can('manage_expenses') && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
-            <div className="p-6 border-b border-slate-200 flex justify-between items-center">
-              <h3 className="text-lg font-bold text-slate-800">Record Expense</h3>
-              <button onClick={() => setShowForm(false)} className="text-slate-400 hover:text-slate-600">✕</button>
-            </div>
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-600 mb-1">Category *</label>
-                <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 text-sm">
-                  {categories.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-600 mb-1">Description *</label>
-                <input required value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 text-sm" />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-600 mb-1">Amount ($) *</label>
-                  <input required type="number" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 text-sm" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-600 mb-1">Date *</label>
-                  <input required type="date" value={form.expenseDate} onChange={(e) => setForm({ ...form, expenseDate: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 text-sm" />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-600 mb-1">Paid To</label>
-                <input value={form.paidTo} onChange={(e) => setForm({ ...form, paidTo: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 text-sm" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-600 mb-1">Payment Method</label>
-                <select value={form.paymentMethod} onChange={(e) => setForm({ ...form, paymentMethod: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 text-sm">
-                  <option value="CASH">Cash</option>
-                  <option value="CARD">Card</option>
-                  <option value="BANK_TRANSFER">Bank Transfer</option>
-                  <option value="MOBILE_MONEY">Mobile Money</option>
-                </select>
-              </div>
-              <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setShowForm(false)}
-                  className="flex-1 py-3 bg-slate-100 text-slate-700 rounded-xl text-sm">Cancel</button>
-                <button type="submit" disabled={submitting}
-                  className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-semibold rounded-xl text-sm">
-                  {submitting ? 'Saving...' : 'Record Expense'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </Layout>
-  );
+  const [data,setData]=useState<any>(null),[monthly,setMonthly]=useState<any>(null),[rate,setRate]=useState('');
+  const [display,setDisplay]=useState('SLL'),[form,setForm]=useState(empty),[show,setShow]=useState(false);
+  const [busy,setBusy]=useState(false),[loading,setLoading]=useState(true),[error,setError]=useState(''),[revision,setRevision]=useState(0);
+  const lock=useRef(false);
+  function openExpense(){if(loading)return;setForm({...empty(),exchangeRate:rate});setError('');setShow(true);}
+  useEffect(()=>{const c=new AbortController();setLoading(true);setError('');setData(null);setMonthly(null);
+    Promise.all([api.get('/expenses',{signal:c.signal}),api.get('/expenses/monthly',{signal:c.signal}),api.get('/billing/settings',{signal:c.signal})]).then(([e,m,s])=>{if(!c.signal.aborted){setData(e.data);setMonthly(m.data);setRate(s.data.posExchangeRate?String(s.data.posExchangeRate):'');}}).catch(e=>{if(!c.signal.aborted)setError(String(e.response?.data?.message||'Unable to load expenses.'));}).finally(()=>{if(!c.signal.aborted)setLoading(false);});return()=>c.abort();},[revision]);
+  const currency=display==='SLL'&&Number(rate)>0?'SLL':'USD';
+  const money=(usd:unknown)=>`${currency==='SLL'?'Le ':'$'}${fmt(Number(usd)*(currency==='SLL'?Number(rate):1))}`;
+  async function save(e:React.FormEvent){e.preventDefault();if(lock.current)return;lock.current=true;setBusy(true);setError('');try{await api.post('/expenses',{...form,amount:Number(form.amount),exchangeRate:form.exchangeRate?Number(form.exchangeRate):undefined});setShow(false);setRevision(n=>n+1);}catch(e:any){setError(String(e.response?.data?.message||'Unable to save. Check records before retrying.'));}finally{lock.current=false;setBusy(false);}}
+  return <Layout><main className="p-5 text-sm text-slate-700"><header className="flex flex-wrap justify-between items-center gap-3 mb-5"><div><h1 className="text-lg font-semibold">Expenses</h1><p className="text-xs">Original currency, recorded rate and staff attribution</p></div><div className="flex gap-2"><select aria-label="Expense display currency" className={button} value={currency} onChange={e=>setDisplay(e.target.value)}><option value="SLL" disabled={!Number(rate)}>Leones</option><option value="USD">USD</option></select><button className={button} disabled={loading||busy} onClick={()=>setRevision(n=>n+1)}>Refresh expenses</button>{can('manage_expenses')&&<button className={button} disabled={loading||busy} onClick={openExpense}>+ Record Expense</button>}</div></header>
+    {error&&<p role="alert" className="my-3 bg-red-50 p-3 text-red-700">{error}</p>}{loading&&<p role="status">Loading expenses…</p>}
+    {data&&monthly&&<><section className="grid gap-3 sm:grid-cols-3 mb-4">{[['This month (UTC)',monthly.total],['All recorded expenses',data.total],['Records',data.expenses.length]].map(([label,value])=><article key={label} className="rounded border bg-white p-4"><h2>{label}</h2><strong className="text-lg">{label==='Records'?value:money(value)}</strong></article>)}</section><p className="text-xs mb-4">Totals use USD base values. {Number(rate)>0?`Leones display uses the current rate: 1 USD = Le ${rate}.`:'No hotel rate configured; totals use USD.'} Original amounts and historical rates do not change.</p><section className="rounded border bg-white p-4 mb-4"><h2 className="font-semibold">By category</h2>{Object.entries(data.byCategory).map(([c,n])=><p key={c}>{c}: {money(n)}</p>)}</section>
+    <div className="overflow-auto rounded border bg-white"><table className="w-full text-left"><thead className="bg-slate-50"><tr>{['Date UTC','Expense / category','Paid to','Method','Original amount','USD value','Recorded Le/USD rate','Recorded by',''].map((h,i)=><th className="p-3" key={i}>{h}</th>)}</tr></thead><tbody>{data.expenses.map((e:any)=><tr key={e.id} className="border-t"><td className="p-3">{e.expenseDate.slice(0,10)}</td><td>{e.description}<p className="text-xs">{e.category}</p></td><td>{e.paidTo||'—'}</td><td>{e.paymentMethod}</td><td>{e.currency||'USD'} {fmt(e.originalAmount??e.amount)}</td><td>${fmt(e.amount)}</td><td>{e.exchangeRate||'Not recorded'}</td><td>{e.staffName||e.recordedByName||'Former / unrecorded staff'}</td><td>{can('manage_expenses')&&<button className={button} disabled={busy} onClick={async()=>{if(lock.current||!confirm('Permanently delete this expense?'))return;lock.current=true;setBusy(true);try{await api.delete('/expenses/'+e.id);setRevision(n=>n+1);}catch(err:any){setError(String(err.response?.data?.message||'Delete failed'));}finally{lock.current=false;setBusy(false);}}}>Delete</button>}</td></tr>)}</tbody></table>{!data.expenses.length&&<p className="p-5">No expenses recorded yet.</p>}</div></>}
+    {show&&can('manage_expenses')&&<div className="fixed inset-0 z-50 overflow-auto bg-black/40 p-4"><section role="dialog" aria-modal="true" aria-label="Record expense" className="mx-auto my-8 max-w-lg rounded bg-white p-5"><h2 className="font-semibold mb-3">Record Expense</h2>{error&&<p role="alert" className="text-red-700">{error}</p>}<form onSubmit={save}><fieldset disabled={busy} className="space-y-3">
+    <label className="block">Category<select className={input} value={form.category} onChange={e=>setForm({...form,category:e.target.value})}>{categories.map(c=><option key={c}>{c}</option>)}</select></label>
+    <label className="block">Description<input aria-label="Expense description" autoFocus required maxLength={500} className={input} value={form.description} onChange={e=>setForm({...form,description:e.target.value})}/></label>
+    <label className="block">Currency<select aria-label="Expense currency" className={input} value={form.currency} onChange={e=>setForm({...form,currency:e.target.value,amount:''})}><option value="SLL">Leones (SLL)</option><option value="USD">USD</option></select></label>
+    <label className="block">Amount ({form.currency})<input aria-label="Expense amount" required type="number" min="0.01" step="0.01" max="99999999.99" className={input} value={form.amount} onChange={e=>setForm({...form,amount:e.target.value})}/></label>
+    <label className="block">Leones per 1 USD — select saved rate or edit<input aria-label="Expense exchange rate" list="expense-rates" required={form.currency==='SLL'} type="number" min="0.0001" step="0.0001" max="999999.9999" className={input} value={form.exchangeRate} onChange={e=>setForm({...form,exchangeRate:e.target.value})}/><datalist id="expense-rates">{rate&&<option value={rate}>Hotel saved rate</option>}</datalist></label>
+    <p className="text-xs">USD equivalent: {form.currency==='USD'?fmt(form.amount||0):Number(form.exchangeRate)>0?fmt(Number(form.amount)/Number(form.exchangeRate)):'Enter a rate'}. This rate is saved with the expense.</p>
+    <label className="block">Date (UTC)<input aria-label="Expense date" required type="date" className={input} value={form.expenseDate} onChange={e=>setForm({...form,expenseDate:e.target.value})}/></label>
+    <label className="block">Paid to<input aria-label="Expense paid to" maxLength={160} className={input} value={form.paidTo} onChange={e=>setForm({...form,paidTo:e.target.value})}/></label>
+    <label className="block">Payment method<select aria-label="Expense method" className={input} value={form.paymentMethod} onChange={e=>setForm({...form,paymentMethod:e.target.value})}>{methods.map(m=><option key={m}>{m}</option>)}</select></label>
+    <div className="flex justify-end gap-2"><button type="button" className={button} onClick={()=>setShow(false)}>Cancel</button><button className={button}>{busy?'Saving…':'Record Expense'}</button></div></fieldset></form></section></div>}
+  </main></Layout>;
 }

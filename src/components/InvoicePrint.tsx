@@ -1,0 +1,15 @@
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
+import api from '../api/client';
+
+export default function InvoicePrint({ id, onClose }: { id: string; onClose: () => void }) {
+  const [data, setData] = useState<any>(null), [error, setError] = useState('');
+  useEffect(() => { const c = new AbortController(); api.get('/billing/invoices/' + id, { signal: c.signal }).then(r => { if (!c.signal.aborted) setData(r.data); }).catch(e => { if (!c.signal.aborted) setError(String(e.response?.data?.message || 'Unable to load invoice')); }); return () => c.abort(); }, [id]);
+  const fmt = (n: any) => Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return createPortal(<div id="corporate-invoice-overlay" role="dialog" aria-modal="true" aria-label="Corporate invoice" className="fixed inset-0 z-[200] overflow-auto bg-black/40 p-6">
+    <style>{`@media print {body > *:not(#corporate-invoice-overlay) {display:none!important} #corporate-invoice-overlay {position:static!important;padding:0!important;background:white!important} #corporate-invoice-overlay .invoice-controls {display:none!important}}`}</style>
+    <article className="mx-auto max-w-2xl bg-white p-6 text-sm text-slate-800"><div className="invoice-controls flex justify-between mb-5"><button autoFocus onClick={onClose}>Close invoice</button><button disabled={!data} onClick={() => window.print()}>Print invoice</button></div>{error && <p role="alert">{error}</p>}{!data && !error && <p>Loading invoice…</p>}
+      {data && <><h1 className="text-lg font-semibold">{data.propertyName}</h1><p>{data.propertyCode} · Anzak Cloud</p><h2 className="my-4 font-semibold">INVOICE {data.invoiceNumber}</h2><p>Issued: {new Date(data.createdAt).toLocaleString()}</p><p>Bill to: {data.account.name} ({data.account.type})</p><p>{data.account.email} {data.account.phone}</p><hr className="my-4"/><p>{data.description}</p><p>Reference: {data.reference || '—'}</p><p className="font-semibold my-3">Total: {data.currency} {fmt(data.amount)}</p><p>USD value: {fmt(data.amountUsd)}</p><p>Leones value: {data.currency === 'SLL' ? fmt(data.amount) : data.exchangeRate ? fmt(Number(data.amountUsd) * Number(data.exchangeRate)) : 'Historical rate unavailable'}</p>{data.exchangeRate && <p>Recorded rate: 1 USD = {fmt(data.exchangeRate)} Leones</p>}<p>Paid: USD {fmt(data.paidUsd)} · Outstanding: USD {fmt(data.balanceUsd)}</p><h3 className="font-semibold mt-5">Invoice payment records</h3>{data.invoicePayments.map((p: any) => <p key={p.id} className="border-t py-2">{p.receiptNumber} · {new Date(p.createdAt).toLocaleString()} · {p.method} · {p.currency} {fmt(p.amount)} (USD {fmt(p.amountUsd)})</p>)}{!data.invoicePayments.length && <p>No payments recorded against this invoice.</p>}<p className="mt-5 text-xs">Single-line invoice for the recorded charge. No additional tax is calculated. Currency equivalents represent the same invoice.</p></>}
+    </article>
+  </div>, document.body);
+}

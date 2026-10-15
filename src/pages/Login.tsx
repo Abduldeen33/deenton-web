@@ -18,10 +18,11 @@ export default function Login() {
     try {
       const response = await login(form.propertyCode, form.email, form.password);
       setAuth(response.access_token, response.user);
+      if (['ACCOUNTS', 'DIRECTOR_OF_FINANCE'].includes(response.user.role)) { navigate('/finance'); return; }
       if (['SUPER_ADMIN', 'CEO'].includes(response.user.role)) {
         navigate('/super-admin');
       } else {
-        navigate(['GENERAL_MANAGER', 'ASSISTANT_GENERAL_MANAGER', 'PURCHASE_MANAGER'].includes(response.user.role) ? '/inventory' : response.user.role === 'KITCHEN' ? (can('view_pos_queue') ? '/pos-queues' : '/workspace') : response.user.role === 'BAR' ? (can('view_pos_queue') ? '/pos-queues' : '/pos') : response.user.role === 'RESTAURANT' ? '/pos' : '/dashboard');
+        navigate(['GENERAL_MANAGER', 'ASSISTANT_GENERAL_MANAGER', 'PURCHASE_MANAGER', 'DIRECTOR_OF_FINANCE', 'STOREKEEPING_MANAGER'].includes(response.user.role) ? '/inventory' : response.user.role === 'KITCHEN' ? (can('view_pos_queue') ? '/pos-queues' : '/workspace') : response.user.role === 'BAR' ? (can('view_pos_queue') ? '/pos-queues' : '/pos') : response.user.role === 'RESTAURANT' ? '/pos' : '/dashboard');
       }
     } catch (err: any) {
       setError(err.response?.data?.message || 'Invalid credentials');

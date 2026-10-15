@@ -4,8 +4,11 @@ import { getDashboard } from '../api/reports';
 import Layout from '../components/Layout';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import api from '../api/client';
+import { Link } from 'react-router-dom';
+import { can } from '../store/permissions';
 
 export default function Dashboard() {
+  const inventoryShortcut=can('view_inventory') ? <Link to="/inventory?new=item" className="inline-flex rounded bg-indigo-600 px-4 py-2 text-sm font-semibold text-white">Add inventory</Link> : null;
   const [data, setData] = useState<any>(null);
   const [advanced, setAdvanced] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -26,6 +29,7 @@ export default function Dashboard() {
   if (loading) {
     return (
       <Layout>
+        {inventoryShortcut && <div className="p-4">{inventoryShortcut}</div>}
         <div className="flex items-center justify-center h-full">
           <div className="text-slate-400">Loading dashboard...</div>
         </div>
@@ -67,11 +71,12 @@ export default function Dashboard() {
     <Layout>
       <div className="min-h-screen bg-[#f5f6fb] p-3 md:p-4 xl:p-5">
         {/* Header */}
-        <div className="mb-3 flex items-end justify-between border-b border-[#e1e3ec] bg-white px-4 py-3 shadow-sm">
+        <div className="mb-3 flex flex-wrap items-end justify-between gap-3 border-b border-[#e1e3ec] bg-white px-4 py-3 shadow-sm">
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#6d63d9]">Anzak Cloud · Operations overview</p>
             <h2 className="mt-1 text-lg font-bold text-[#2d3142]">Dashboard</h2>
           </div>
+          {inventoryShortcut}
           <div className="border border-[#e1e3ec] bg-[#fafaff] px-3 py-1.5 text-right">
             <p className="text-[10px] uppercase tracking-[0.18em] text-slate-500">Today</p>
             <p className="text-sm font-semibold text-slate-800">

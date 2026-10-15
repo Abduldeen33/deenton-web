@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { isAxiosError } from 'axios';
+import { useSearchParams } from 'react-router-dom';
 import Layout from '../components/Layout';
 import api from '../api/client';
 
-type Access = { departments: string[]; canWrite: boolean; canAssign: boolean };
+type Access = { departments: string[]; canWrite: boolean; canAssign: boolean; canCreateDepartment: boolean };
 type CurrencySettings = { exchangeRate: string | null; canEdit: boolean };
 type Category = { id: string; name: string };
 type Item = {
@@ -76,6 +77,10 @@ const emptyItem = {
 };
 
 export default function Inventory() {
+  const [searchParams,setSearchParams]=useSearchParams();
+  const openingFromDashboard=useRef(false);
+  const [entryItemId,setEntryItemId]=useState('');
+  const [stockMethod,setStockMethod]=useState<'IN'|'OUT'|'COUNT'>('IN');
   const [currency, setCurrency] = useState<'SLL' | 'USD'>('SLL');
   const [settings, setSettings] = useState<CurrencySettings | null>(null);
   const [rateMode, setRateMode] = useState('SAVED');
@@ -113,11 +118,12 @@ export default function Inventory() {
   const [busy, setBusy] = useState(false);
   const working = useRef(false);
   const [dialog, setDialog] = useState<
-    'ITEM' | 'CATEGORY' | 'IN' | 'OUT' | 'COUNT' | 'ASSIGN' | null
+    'ITEM' | 'CATEGORY' | 'DEPARTMENT' | 'IN' | 'OUT' | 'COUNT' | 'ASSIGN' | null
   >(null);
   const [selected, setSelected] = useState<Item | null>(null);
   const [draft, setDraft] = useState(emptyItem);
   const [category, setCategory] = useState({ name: '', description: '' });
+  const [departmentName, setDepartmentName] = useState('');
   const [movement, setMovement] = useState({
     issuedTo: '',
     quantity: '',
@@ -190,6 +196,14 @@ export default function Inventory() {
       });
     return () => controller.abort();
   }, [access, department, page, revision]);
+  useEffect(()=>{
+    if(searchParams.get('new')!=='item') {openingFromDashboard.current=false;return;}
+    if(openingFromDashboard.current || !access?.canWrite || !department || loading || loadError)return;
+    openingFromDashboard.current=true;
+    const next=new URLSearchParams(searchParams);next.delete('new');setSearchParams(next,{replace:true});
+    if(categories.length)open('ITEM');
+    else {setMessage('Create your first category, then choose Add inventory item to enter stock.');open('CATEGORY');}
+  },[searchParams,access,department,loading,loadError,categories,setSearchParams]);
   async function action(work: () => Promise<unknown>, success: string) {
     if (working.current) return;
     working.current = true;
@@ -208,7 +222,7 @@ export default function Inventory() {
     }
   }
   function open(kind: typeof dialog, item?: Item) {
-    setEntryCurrency(currency);
+    setEntryCurrency(hasRate ? currency : 'USD');
     setEntryRate(hasRate ? rate : undefined);
     setError('');
     setDialog(kind);
@@ -229,11 +243,19 @@ export default function Inventory() {
       department: access?.departments.find((d) => d !== 'UNASSIGNED') || '',
     });
     setCategory({ name: '', description: '' });
+    setDepartmentName('');
   }
   async function save(e: FormEvent) {
     e.preventDefault();
     await action(async () => {
-      if (dialog === 'CATEGORY')
+      if (dialog === 'DEPARTMENT') {
+        const { data } = await api.post<{ code: string }>('/inventory/departments', { name: departmentName.trim() });
+        setAccess(previous => previous ? { ...previous, departments: [...new Set([...previous.departments, data.code])] } : previous);
+        setDepartment(data.code);
+        setPage(1);
+        setSearch('');
+        setTab('ITEMS');
+      } else if (dialog === 'CATEGORY')
         await api.post('/inventory/categories', category);
       else if (dialog === 'ITEM') {
         const data = {
@@ -274,7 +296,7 @@ export default function Inventory() {
             },
           );
       }
-    }, 'Inventory record saved.');
+    }, dialog === 'DEPARTMENT' ? 'Department added. You can now add inventory items to its sheet.' : 'Inventory record saved.');
   }
   async function download() {
     if (working.current) return;
@@ -333,6 +355,16 @@ export default function Inventory() {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
+            {access?.canCreateDepartment && (
+              <button className={button} disabled={busy || loading || !!loadError} onClick={() => open('DEPARTMENT')}>Add department</button>
+            )}
+            {access?.canWrite && <>
+              <button className={primary} disabled={busy || loading || !!loadError} onClick={()=>{
+                if(categories.length)open('ITEM');
+                else {setMessage('Create your first category, then choose Add inventory item to enter stock.');open('CATEGORY');}
+              }}>Add inventory item</button>
+              <button className={button} disabled={busy || loading || !!loadError} onClick={()=>open('CATEGORY')}>Add category</button>
+            </>}
             <button
               className={button}
               disabled={busy}
@@ -501,6 +533,7 @@ export default function Inventory() {
                 ))}
               </div>
             )}
+            {access.canWrite && !loading && !loadError && <section aria-label="Stock entry" className="my-4 rounded border bg-white p-4"><h2 className="font-semibold">Stock entry</h2><p className="my-2 text-xs text-slate-500">Add a category and inventory item first. Then record stock received, issued to a named recipient, or a physical count. Balances update automatically.</p><div className="flex flex-wrap items-end gap-3"><label className="text-xs">Inventory item<select aria-label="Stock entry item" className={field} value={entryItemId} onChange={e=>setEntryItemId(e.target.value)}><option value="">Select inventory item</option>{items.map(item=><option key={item.id} value={item.id}>{label(item.department)} · {item.name} ({item.currentStock} {item.unit})</option>)}</select></label><label className="text-xs">Stock method<select aria-label="Stock method" className={field} value={stockMethod} onChange={e=>setStockMethod(e.target.value as 'IN'|'OUT'|'COUNT')}><option value="IN">Stock received (in)</option><option value="OUT">Stock issued (out)</option><option value="COUNT">Physical stock count</option></select></label><button className={primary} disabled={busy || !items.some(i=>i.id===entryItemId)} onClick={()=>{const item=items.find(i=>i.id===entryItemId);if(item)open(stockMethod,item);}}>Record stock movement</button></div>{!items.length && <p className="mt-2 text-xs text-amber-700">No inventory items in this department yet. Use Add category / Add inventory item below to begin.</p>}</section>}
             <div className="my-4 flex flex-wrap items-center gap-2">
               {/* Values are calculated on the server from the scoped stock sheet. */}
               {[
@@ -525,24 +558,6 @@ export default function Inventory() {
                 onChange={(e) => setSearch(e.target.value)}
                 disabled={tab === 'HISTORY' || tab === 'OVERVIEW'}
               />
-              {access.canWrite && (
-                <>
-                  <button
-                    className={button}
-                    disabled={busy}
-                    onClick={() => open('CATEGORY')}
-                  >
-                    Add category
-                  </button>
-                  <button
-                    className={primary}
-                    disabled={busy || !categories.length || loading}
-                    onClick={() => open('ITEM')}
-                  >
-                    Add inventory item
-                  </button>
-                </>
-              )}
             </div>
             {loading ? (
               <p className="p-8">Loading department inventory…</p>
@@ -784,7 +799,7 @@ export default function Inventory() {
               className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white p-5"
             >
               <h2 className="mb-4 font-semibold">
-                {dialog === 'ITEM'
+                {dialog === 'DEPARTMENT' ? 'Add department' : dialog === 'ITEM'
                   ? 'Add inventory item'
                   : dialog === 'CATEGORY'
                     ? 'Add category'
@@ -835,7 +850,15 @@ export default function Inventory() {
                     </p>
                   </div>
                 )}
-                {dialog === 'CATEGORY' ? (
+                {dialog === 'DEPARTMENT' ? (
+                  <>
+                    <label className="block text-xs">
+                      Department name
+                      <input aria-label="Department name" autoFocus required minLength={2} maxLength={31} className={field} value={departmentName} onChange={e => setDepartmentName(e.target.value)} placeholder="For example: Spa or Laundry Store" />
+                    </label>
+                    <p className="text-xs text-slate-500">Use 2–31 letters, numbers, spaces or hyphens, starting with a letter. This creates an inventory sheet for this hotel only; staff roles and permissions stay unchanged.</p>
+                  </>
+                ) : dialog === 'CATEGORY' ? (
                   <>
                     <label className="block text-xs">
                       Category name

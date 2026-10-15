@@ -9,7 +9,7 @@ const api = axios.create({
 api.interceptors.request.use((config) => {
   const permittedPrint = ['KITCHEN','RESTAURANT','BAR'].includes(getUser()?.role || '') && config.method?.toLowerCase() === 'post' && /^\/pos\/orders\/[^/]+\/printed$/.test(config.url || '');
   const permittedChef = getUser()?.role === 'KITCHEN' && config.method?.toLowerCase() === 'patch' && /^\/pos\/(tickets\/[^/]+\/status|menu-items\/[^/]+\/(configuration|availability))$/.test(config.url || '');
-  const permittedPayment = config.method?.toLowerCase() === 'post' && can('record_payments') && (config.url === '/billing/payment' || /^\/billing\/house-accounts\/[^/]+\/payments$/.test(config.url || ''));
+  const permittedPayment = config.method?.toLowerCase() === 'post' && can('record_payments') && (['/billing/payment', '/billing/service-payments'].includes(config.url || '') || /^\/billing\/house-accounts\/[^/]+\/payments$/.test(config.url || ''));
   const permittedNightAudit = config.url === '/night-audit/run' && config.method?.toLowerCase() === 'post' && can('night_audit');
   const permittedReservation = config.url === '/reservations' && config.method?.toLowerCase() === 'post' && can('create_reservations');
   const permittedPosSale = ['RESTAURANT', 'BAR'].includes(getUser()?.role || '') && config.method?.toLowerCase() === 'post' && /^(\/pos\/orders|\/pos\/orders\/[^/]+\/(settle|split-bill)|\/pos\/shifts|\/pos\/shifts\/[^/]+\/close)$/.test(config.url || '');

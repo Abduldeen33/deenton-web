@@ -1,8 +1,10 @@
 import Sidebar from './Sidebar';
+import FinanceShell from './FinanceShell';
 import { can, canOperate } from '../store/permissions';
 import { getUser } from '../store/auth';
 
 export default function Layout({ children }: { children: React.ReactNode }) {
+  if (['ACCOUNTS', 'DIRECTOR_OF_FINANCE'].includes(getUser()?.role || '')) return <FinanceShell>{children}</FinanceShell>;
   return (
     <div className="flex min-h-screen bg-slate-100">
       <Sidebar />

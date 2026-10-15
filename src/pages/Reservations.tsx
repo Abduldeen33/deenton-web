@@ -1,4 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import GuestSettlements from '../components/GuestSettlements';
+import PaymentReceipt from '../components/PaymentReceipt';
 import api from '../api/client';
 import { getReservations, checkIn, checkOut, createReservation, updateReservation, sendReservationEmail } from '../api/reservations';
 import { getRooms } from '../api/rooms';
@@ -16,6 +18,9 @@ const statusConfig: any = {
 };
 
 export default function Reservations() {
+  const [stayRevision, setStayRevision] = useState(0), [receipt, setReceipt] = useState('');
+  const [checkInAfterPayment, setCheckInAfterPayment] = useState(false);
+  const paymentKey = useRef(crypto.randomUUID()), paymentLock = useRef(false);
   const [reservations, setReservations] = useState<any[]>([]);
   const [auditReady, setAuditReady] = useState(false);
   const [auditMessage, setAuditMessage] = useState('Checking night audit before new reservations...');
@@ -70,6 +75,7 @@ export default function Reservations() {
     Promise.all([getReservations(), getRooms()])
       .then(([res, rms]) => {
         setReservations(res);
+        setStayRevision(n => n + 1);
         setRooms(rms.filter((r: any) => r.status === 'VACANT'));
       })
       .catch(console.error)
@@ -131,7 +137,14 @@ export default function Reservations() {
 
   const handleCheckIn = async (id: string) => {
     setActionLoading(id);
-    try { await checkIn(id); load(); }
+    try {
+      const folio = (await api.get(`/billing/reservation/${id}`)).data;
+      if (Number(folio.balance) > 0) {
+        await openCollectPayment(reservations.find(r => r.id === id), true);
+        return;
+      }
+      await checkIn(id); load();
+    }
     catch (err: any) { alert(err.response?.data?.message || 'Check-in failed'); }
     finally { setActionLoading(null); }
   };
@@ -176,16 +189,18 @@ export default function Reservations() {
     setShowForm(true);
   };
 
-  const openCollectPayment = async (reservation: any) => {
+  const openCollectPayment = async (reservation: any, forCheckIn = false) => {
     try {
-      const folioRes = await api.get(`/billing/reservation/${reservation.id}`);
+      const [folioRes, settings] = await Promise.all([api.get(`/billing/reservation/${reservation.id}`), api.get('/billing/settings')]);
+      setCheckInAfterPayment(forCheckIn);
+      paymentKey.current = crypto.randomUUID();
       setSelectedPaymentReservation(reservation);
       setSelectedFolio(folioRes.data);
       setPaymentForm({
         method: 'CASH',
         amount: String(folioRes.data.balance ?? 0),
         currency: 'USD',
-        exchangeRate: '',
+        exchangeRate: settings.data.posExchangeRate ? String(settings.data.posExchangeRate) : '',
         reference: '',
         email: reservation.guest?.email ?? '',
       });
@@ -197,11 +212,12 @@ export default function Reservations() {
 
   const handleCollectPayment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedFolio) return;
-
+    if (!selectedFolio || paymentLock.current) return;
+    paymentLock.current = true;
     setPaymentLoading(true);
     try {
-      await api.post('/billing/payment', {
+      const response = await api.post('/billing/payment', {
+        idempotencyKey: paymentKey.current,
         folioId: selectedFolio.id,
         method: paymentForm.method,
         amount: Number(paymentForm.amount),
@@ -210,6 +226,11 @@ export default function Reservations() {
         reference: paymentForm.reference,
         ...(paymentForm.email?.trim() ? { email: paymentForm.email.trim() } : {}),
       });
+      setReceipt(response.data.id);
+      if (checkInAfterPayment) {
+        try { await checkIn(selectedPaymentReservation.id); }
+        catch (err: any) { alert('Payment saved. Check-in was not completed: ' + (err.response?.data?.message || 'Retry Check In; do not repeat the payment.')); }
+      }
       setShowPaymentModal(false);
       setSelectedPaymentReservation(null);
       setSelectedFolio(null);
@@ -222,11 +243,11 @@ export default function Reservations() {
         email: '',
       });
       load();
-      alert('Payment recorded successfully');
     } catch (err: any) {
       alert(err.response?.data?.message || 'Failed to record payment');
     } finally {
       setPaymentLoading(false);
+      paymentLock.current = false;
     }
   };
 
@@ -345,6 +366,8 @@ export default function Reservations() {
 
   return (
     <Layout>
+      {receipt && <PaymentReceipt id={receipt} onClose={() => setReceipt('')}/>}
+      {can('view_billing') && <GuestSettlements revision={stayRevision}/>}
       {auditMessage && <div role="status" className="border-b border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{auditMessage} {can('view_night_audit') ? <a href="/night-audit" className="underline">Open Night Audit</a> : <span>Contact an authorized audit operator.</span>}</div>}
       <div className="flex h-full min-h-full flex-col bg-[#f8f8f6] text-[#252525]">
         {/* Top Bar */}
@@ -523,10 +546,12 @@ export default function Reservations() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl">
             <div className="p-6 border-b border-slate-200 flex justify-between items-center">
-              <h3 className="text-lg font-bold text-slate-800">Collect Payment</h3>
+              <h3 className="text-lg font-bold text-slate-800">{checkInAfterPayment ? 'Settlement required before check-in' : 'Collect Payment'}</h3>
               <button onClick={() => setShowPaymentModal(false)} className="text-slate-400 hover:text-slate-600 text-xl">✕</button>
             </div>
             <form onSubmit={handleCollectPayment} className="p-6 space-y-4">
+              <p className="text-sm">Charges: USD {Number(selectedFolio?.totalCharges || 0).toFixed(2)} · Paid: USD {Number(selectedFolio?.totalPayments || 0).toFixed(2)} · Outstanding: USD {Number(selectedFolio?.balance || 0).toFixed(2)}</p>
+              {checkInAfterPayment && <p className="text-xs text-amber-800">The full balance must be paid before check-in can complete. Your payment remains recorded even if check-in needs to be retried.</p>}
               <div>
                 <p className="text-sm text-slate-500">Guest</p>
                 <p className="font-medium text-slate-800">
@@ -582,7 +607,7 @@ export default function Reservations() {
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setShowPaymentModal(false)} className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-medium">Cancel</button>
                 <button type="submit" disabled={paymentLoading} className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-300 text-white font-semibold rounded-xl text-sm">
-                  {paymentLoading ? 'Saving...' : 'Record Payment'}
+                  {paymentLoading ? 'Saving...' : checkInAfterPayment ? 'Record payment & check in' : 'Record Payment'}
                 </button>
               </div>
             </form>

@@ -18,6 +18,11 @@ export default function RestaurantPosShell({ children, active, onNavigate, searc
     clearAuth(); navigate('/login', { replace: true });
   }
   function go(section: string) { onNavigate(section); setNavOpen(false); }
+  function addInventory() {
+    if(busy)return;
+    if(hasDraft && !window.confirm('Open inventory and leave this unsent cart? Saved offline orders will remain available.'))return;
+    navigate('/inventory?new=item');
+  }
   const navItem = (label: string, id: string, Icon: typeof LayoutDashboard) => <button key={id} type="button" aria-current={active === id ? 'page' : undefined} className={'rp-nav-item ' + (active === id ? 'is-active' : '')} onClick={() => go(id)}><Icon size={18}/><span>{label}</span></button>;
   return <div className="restaurant-pos rp-light">
     <aside className={'rp-sidebar ' + (navOpen ? 'is-open' : '')}>
@@ -39,6 +44,7 @@ export default function RestaurantPosShell({ children, active, onNavigate, searc
         {configure && navItem('Add-ons & variants', 'modifiers', SlidersHorizontal)}
         {admin && navItem('QR Codes', 'qr', QrCode)}
         <p className="rp-nav-group">Operations</p>
+        {can('view_inventory') && <Link className="rp-nav-item" to="/inventory" onClick={()=>setNavOpen(false)}><Tags size={18}/><span>Inventory</span></Link>}
         {navItem('Tables', 'tables', Armchair)}
         {can('view_pos_queue') && <Link className="rp-nav-item" to="/pos-queues"><ClipboardList size={18}/><span>Orders</span></Link>}
         {navItem('Billing', 'billing', CreditCard)}
@@ -52,6 +58,6 @@ export default function RestaurantPosShell({ children, active, onNavigate, searc
       <button className="rp-mobile-toggle" aria-label={navOpen ? 'Close restaurant navigation' : 'Open restaurant navigation'} aria-expanded={navOpen} onClick={() => setNavOpen(v => !v)}>{navOpen ? <X size={22}/> : <Menu size={22}/>}</button>
       <div className="rp-page-title"><h1>{kitchen ? `${user?.propertyName || 'Restaurant'} · Kitchen Display` : `${user?.propertyName || 'Restaurant'} ${['dashboard','reports'].includes(active) ? 'Dashboard' : 'POS'}`}</h1><p>{kitchen ? 'Food preparation, live tickets, and menus.' : 'Operations, orders, and metrics.'}</p></div>
       <div className="rp-user"><span className="rp-avatar">{user?.firstName?.[0] || 'A'}{user?.lastName?.[0] || ''}</span><span><strong>{user?.firstName} {user?.lastName}</strong><small>{(user?.accessLevel || user?.role || '').replaceAll('_', ' ')}</small></span><span className="rp-app-badge">{kitchen ? 'KDS' : 'R-POS'}</span></div>
-    </header><main className="rp-content">{!kitchen && !canSellPos() && <p role="status" className="mb-3 rounded border border-amber-200 bg-amber-50 p-3">View-only staff access. Your supervisor or manager can take orders and record payments.</p>}{children}</main></div>
+    </header><main className="rp-content">{can('view_inventory') && <div className="mb-3 flex justify-end"><button type="button" disabled={busy} onClick={addInventory} className="rounded bg-indigo-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">Add inventory</button></div>}{!kitchen && !canSellPos() && <p role="status" className="mb-3 rounded border border-amber-200 bg-amber-50 p-3">View-only staff access. Your supervisor or manager can take orders and record payments.</p>}{children}</main></div>
   </div>;
 }

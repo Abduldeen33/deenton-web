@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import PaymentReceipt from '../components/PaymentReceipt';
 import Layout from '../components/Layout';
 import api from '../api/client';
@@ -18,6 +19,9 @@ const chargeColors: any = {
 };
 
 export default function Billing() {
+  const [searchParams] = useSearchParams();
+  const requestedReservation = searchParams.get('reservation');
+  useEffect(() => { if (requestedReservation && can('view_billing')) void openFolio(requestedReservation); }, [requestedReservation]);
   const [receipt, setReceipt] = useState('');
   const [paymentBusy, setPaymentBusy] = useState(false);
   const paymentLock = useRef(false);
