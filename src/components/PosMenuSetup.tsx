@@ -1,3 +1,4 @@
+import PosWaste from './PosWaste';
 import { useEffect, useState } from 'react';
 import { getUser } from '../store/auth';
 import api from '../api/client';
@@ -30,5 +31,6 @@ export default function PosMenuSetup({ onChange }: { onChange: () => void }) {
         <button type="button" className={button} onClick={() => updateGroup(gi, { ...g, options: [...g.options, { id: requestKey(), name: '', priceUsd: 0, recipe: [] }] })}>Add option</button>
       </div>)}<button type="button" className={button} onClick={() => setSelected({ ...selected, modifiers: [...selected.modifiers, { id: requestKey(), name: '', min: 0, max: 1, options: [] }] })}>Add option group</button> <button className={primary}>Save item configuration</button></fieldset></form>}
     {!chef && <div className="border-t pt-3"><button type="button" className={button} onClick={async () => { try { setReport((await api.get('/pos/profit-report')).data); } catch (e) { setError(posError(e)); } }}>View 30-day item performance</button>{report && <div className="mt-3 overflow-auto"><p className="text-xs mb-3">Paid/room-posted sales, recipe ingredient costs and reversed prepared food. Margin excludes labour, overhead and tax. Unconfigured/historical costs are unknown, not zero.</p><table className="w-full text-left"><thead><tr>{['Item','Sold','Revenue USD','Ingredient cost USD','Wasted portions','Waste cost USD','Margin USD'].map(h => <th key={h} className="p-2">{h}</th>)}</tr></thead><tbody>{report.rows.map((r: any) => <tr className="border-t" key={r.name}><td className="p-2">{r.name}</td><td>{r.sold}</td><td>{posMoney(r.revenue)}</td><td>{r.unknownCost ? 'Incomplete' : posMoney(r.cost)}</td><td>{r.wasted}</td><td>{posMoney(r.wasteCost)}</td><td>{r.margin == null ? 'Unknown' : posMoney(r.margin)}</td></tr>)}</tbody></table></div>}</div>}
+    <PosWaste ingredients={data.ingredients} />
   </>}</section>;
 }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+﻿import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { isAxiosError } from 'axios';
 import { useSearchParams } from 'react-router-dom';
 import Layout from '../components/Layout';
@@ -91,7 +91,7 @@ export default function Inventory() {
   const hasRate = Number.isFinite(rate) && rate > 0;
   const money = (value: string | null, unit = currency) =>
     value == null
-      ? '—'
+      ? 'â€”'
       : unit === 'SLL' && !hasRate
         ? 'Leones: rate not set'
         : `${unit === 'SLL' ? 'Le' : 'USD'} ${(Number(value) * (unit === 'SLL' ? rate : 1)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -107,7 +107,7 @@ export default function Inventory() {
     outOfStock: 0,
     totalValue: '0',
   });
-  const [tab, setTab] = useState('ITEMS');
+  const [tab, setTab] = useState('OVERVIEW');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [revision, setRevision] = useState(0);
@@ -350,7 +350,7 @@ export default function Inventory() {
               Department inventory
             </h1>
             <p className="mt-1 text-xs text-slate-500">
-              Department stock sheets, movements and Excel export · Leones and
+              Department stock sheets, movements and Excel export Â· Leones and
               USD
             </p>
           </div>
@@ -526,19 +526,19 @@ export default function Inventory() {
                   ['Out of stock', summary.outOfStock],
                   ['Stock value', money(summary.totalValue)],
                 ].map(([name, value]) => (
-                  <div key={name} className="rounded border bg-white p-3">
+                  <div key={name} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md">
                     <p className="text-xs text-slate-500">{name}</p>
                     <p className="mt-1 text-lg font-semibold">{value}</p>
                   </div>
                 ))}
               </div>
             )}
-            {access.canWrite && !loading && !loadError && <section aria-label="Stock entry" className="my-4 rounded border bg-white p-4"><h2 className="font-semibold">Stock entry</h2><p className="my-2 text-xs text-slate-500">Add a category and inventory item first. Then record stock received, issued to a named recipient, or a physical count. Balances update automatically.</p><div className="flex flex-wrap items-end gap-3"><label className="text-xs">Inventory item<select aria-label="Stock entry item" className={field} value={entryItemId} onChange={e=>setEntryItemId(e.target.value)}><option value="">Select inventory item</option>{items.map(item=><option key={item.id} value={item.id}>{label(item.department)} · {item.name} ({item.currentStock} {item.unit})</option>)}</select></label><label className="text-xs">Stock method<select aria-label="Stock method" className={field} value={stockMethod} onChange={e=>setStockMethod(e.target.value as 'IN'|'OUT'|'COUNT')}><option value="IN">Stock received (in)</option><option value="OUT">Stock issued (out)</option><option value="COUNT">Physical stock count</option></select></label><button className={primary} disabled={busy || !items.some(i=>i.id===entryItemId)} onClick={()=>{const item=items.find(i=>i.id===entryItemId);if(item)open(stockMethod,item);}}>Record stock movement</button></div>{!items.length && <p className="mt-2 text-xs text-amber-700">No inventory items in this department yet. Use Add category / Add inventory item below to begin.</p>}</section>}
             <div className="my-4 flex flex-wrap items-center gap-2">
               {/* Values are calculated on the server from the scoped stock sheet. */}
               {[
                 ['OVERVIEW', 'Department overview'],
                 ['ITEMS', 'Stock sheet'],
+                ['ENTRY', 'Record movement'],
                 ['LOW', 'Low stock'],
                 ['HISTORY', 'Movement history'],
               ].map(([value, name]) => (
@@ -560,12 +560,93 @@ export default function Inventory() {
               />
             </div>
             {loading ? (
-              <p className="p-8">Loading department inventory…</p>
+              <p className="p-8">Loading department inventoryâ€¦</p>
             ) : (
               !loadError &&
-              (tab === 'OVERVIEW' ? (
+              (tab === 'ENTRY' ? (
+                <>
+                  {access.canWrite && !loading && !loadError && <section aria-label="Stock entry" className="my-4 rounded border bg-white p-4"><h2 className="font-semibold">Stock entry</h2><p className="my-2 text-xs text-slate-500">Add a category and inventory item first. Then record stock received, issued to a named recipient, or a physical count. Balances update automatically.</p><div className="flex flex-wrap items-end gap-3"><label className="text-xs">Inventory item<select aria-label="Stock entry item" className={field} value={entryItemId} onChange={e=>setEntryItemId(e.target.value)}><option value="">Select inventory item</option>{items.map(item=><option key={item.id} value={item.id}>{label(item.department)} Â· {item.name} ({item.currentStock} {item.unit})</option>)}</select></label><label className="text-xs">Stock method<select aria-label="Stock method" className={field} value={stockMethod} onChange={e=>setStockMethod(e.target.value as 'IN'|'OUT'|'COUNT')}><option value="IN">Stock received (in)</option><option value="OUT">Stock issued (out)</option><option value="COUNT">Physical stock count</option></select></label><button className={primary} disabled={busy || !items.some(i=>i.id===entryItemId)} onClick={()=>{const item=items.find(i=>i.id===entryItemId);if(item)open(stockMethod,item);}}>Record stock movement</button></div>{!items.length && <p className="mt-2 text-xs text-amber-700">No inventory items in this department yet. Use Add category / Add inventory item below to begin.</p>}</section>}
+                </>
+              ) : tab === 'OVERVIEW' ? (
                 <section aria-label="Department stock overview" className="overflow-auto rounded border bg-white">
-                  <p className="p-3 text-xs text-slate-500">Current stock value = quantity × cost price. Missing costs are excluded from value totals. Quantities in different units are not added together.</p>
+<div className="grid gap-4 p-4 lg:grid-cols-2">
+  <div className="rounded-xl border border-amber-200 bg-amber-50/40 p-4">
+    <div className="mb-3 flex items-center justify-between gap-3">
+      <div>
+        <h3 className="font-semibold text-slate-900">Low Stock Alerts</h3>
+        <p className="text-xs text-slate-500">Items needing attention in the loaded stock sheet</p>
+      </div>
+      <button className={button} onClick={() => setTab('LOW')}>
+        View all
+      </button>
+    </div>
+
+    {items.filter(item => Number(item.currentStock) <= Number(item.minimumStock)).length === 0 ? (
+      <p className="rounded-lg bg-white p-4 text-sm text-slate-500">
+        No low-stock items in the loaded stock sheet.
+      </p>
+    ) : (
+      <div className="space-y-2">
+        {items
+          .filter(item => Number(item.currentStock) <= Number(item.minimumStock))
+          .slice(0, 5)
+          .map(item => (
+            <div key={item.id} className="flex items-center justify-between gap-3 rounded-lg border border-amber-100 bg-white p-3">
+              <div className="min-w-0">
+                <p className="truncate font-medium text-slate-900">{item.name}</p>
+                <p className="text-xs text-slate-500">
+                  Minimum: {item.minimumStock} {item.unit}
+                </p>
+              </div>
+              <span className="shrink-0 rounded-md bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-800">
+                {item.currentStock} {item.unit}
+              </span>
+            </div>
+          ))}
+      </div>
+    )}
+  </div>
+
+  <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+    <div className="mb-3 flex items-center justify-between gap-3">
+      <div>
+        <h3 className="font-semibold text-slate-900">Recent Stock Movements</h3>
+        <p className="text-xs text-slate-500">Latest transactions in the loaded history</p>
+      </div>
+      <button className={button} onClick={() => setTab('HISTORY')}>
+        View history
+      </button>
+    </div>
+
+    {movements.length === 0 ? (
+      <p className="rounded-lg bg-white p-4 text-sm text-slate-500">
+        No stock movements in the loaded history.
+      </p>
+    ) : (
+      <div className="space-y-2">
+        {[...movements]
+          .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+          .slice(0, 5)
+          .map(entry => (
+            <div key={entry.id} className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3">
+              <div className="min-w-0">
+                <p className="truncate font-medium text-slate-900">
+                  {entry.item.name}
+                </p>
+                <p className="text-xs text-slate-500">
+                  {entry.type.replaceAll('_', ' ')} · {new Date(entry.createdAt).toLocaleDateString('en-GB')}
+                </p>
+              </div>
+              <span className="shrink-0 text-xs font-semibold text-slate-700">
+                {entry.quantity} {entry.item.unit}
+              </span>
+            </div>
+          ))}
+      </div>
+    )}
+  </div>
+</div>
+                  <p className="p-3 text-xs text-slate-500">Current stock value = quantity Ã— cost price. Missing costs are excluded from value totals. Quantities in different units are not added together.</p>
                   <table className="w-full border-collapse text-xs"><thead><tr>{['Department','Items','Low stock','Items without cost','Stock value USD','Stock value Leones'].map(h=><th className={cell} key={h}>{h}</th>)}</tr></thead><tbody>
                     {(summary.departments || []).map(d=><tr key={d.department}><td className={cell}>{label(d.department)}</td><td className={cell}>{d.totalItems}</td><td className={cell}>{d.lowStock}</td><td className={cell}>{d.unpricedItems}</td><td className={cell}>{money(d.totalValue,'USD')}</td><td className={cell}>{money(d.totalValue,'SLL')}</td></tr>)}
                   </tbody><tfoot><tr><th className={cell}>Total</th><td className={cell}>{summary.totalItems}</td><td className={cell}>{summary.lowStock}</td><td className={cell}>{(summary.departments || []).reduce((n,d)=>n+d.unpricedItems,0)}</td><td className={cell}>{money(summary.totalValue,'USD')}</td><td className={cell}>{money(summary.totalValue,'SLL')}</td></tr></tfoot></table>
@@ -608,8 +689,8 @@ export default function Inventory() {
                             <td className={cell}>{t.type}</td>
                             <td className={cell}>{Number(t.quantity)}</td>
                             <td className={cell}>{t.item.unit}</td>
-                            <td className={cell}>{t.stockBefore ?? '—'}</td>
-                            <td className={cell}>{t.stockAfter ?? '—'}</td>
+                            <td className={cell}>{t.stockBefore ?? 'â€”'}</td>
+                            <td className={cell}>{t.stockAfter ?? 'â€”'}</td>
                             <td className={cell}>{t.reason || t.notes}</td>
                             <td className={cell}>{t.reference}</td>
                             <td className={cell}>
@@ -633,7 +714,7 @@ export default function Inventory() {
                     >
                       Previous movements
                     </button>
-                    <span>Page {page} · 100 per page</span>
+                    <span>Page {page} Â· 100 per page</span>
                     <button
                       className={button}
                       disabled={movements.length < 100}
@@ -695,7 +776,7 @@ export default function Inventory() {
                           </td>
                           <td className={cell}>{Number(item.minimumStock)}</td>
                           <td className={cell}>
-                            {item.reorderQuantity ?? '—'}
+                            {item.reorderQuantity ?? 'â€”'}
                           </td>
                           <td className={cell}>
                             {money(item.costPrice)}
@@ -810,7 +891,7 @@ export default function Inventory() {
                         : dialog === 'IN'
                           ? 'Stock in'
                           : 'Stock out'}
-                {selected && ` — ${selected.name}`}
+                {selected && ` â€” ${selected.name}`}
               </h2>
               {error && (
                 <p role="alert" className="mb-3 text-red-700">
@@ -856,7 +937,7 @@ export default function Inventory() {
                       Department name
                       <input aria-label="Department name" autoFocus required minLength={2} maxLength={31} className={field} value={departmentName} onChange={e => setDepartmentName(e.target.value)} placeholder="For example: Spa or Laundry Store" />
                     </label>
-                    <p className="text-xs text-slate-500">Use 2–31 letters, numbers, spaces or hyphens, starting with a letter. This creates an inventory sheet for this hotel only; staff roles and permissions stay unchanged.</p>
+                    <p className="text-xs text-slate-500">Use 2â€“31 letters, numbers, spaces or hyphens, starting with a letter. This creates an inventory sheet for this hotel only; staff roles and permissions stay unchanged.</p>
                   </>
                 ) : dialog === 'CATEGORY' ? (
                   <>
@@ -1067,7 +1148,7 @@ export default function Inventory() {
                       />
                     </label>
                     {dialog === 'OUT' && <label className="block text-xs">Issued to / received by<input aria-label="Stock recipient" className={field} required minLength={2} maxLength={150} value={movement.issuedTo} onChange={e=>setMovement(v=>({...v,issuedTo:e.target.value}))}/></label>}
-                    <p className="text-xs text-slate-600">Calculated balance after this record: {movement.quantity !== '' && selected ? (dialog === 'COUNT' ? Number(movement.quantity) : Number(selected.currentStock) + (dialog === 'IN' ? 1 : -1) * Number(movement.quantity)).toLocaleString('en-US',{maximumFractionDigits:2}) : '—'} {selected?.unit}. The server checks the latest balance before saving.</p>
+                    <p className="text-xs text-slate-600">Calculated balance after this record: {movement.quantity !== '' && selected ? (dialog === 'COUNT' ? Number(movement.quantity) : Number(selected.currentStock) + (dialog === 'IN' ? 1 : -1) * Number(movement.quantity)).toLocaleString('en-US',{maximumFractionDigits:2}) : 'â€”'} {selected?.unit}. The server checks the latest balance before saving.</p>
                     <label className="block text-xs">
                       Reference
                       <input
@@ -1102,7 +1183,7 @@ export default function Inventory() {
                     }
                     className={primary}
                   >
-                    {busy ? 'Saving…' : 'Save inventory record'}
+                    {busy ? 'Savingâ€¦' : 'Save inventory record'}
                   </button>
                 </div>
               </form>
@@ -1113,3 +1194,7 @@ export default function Inventory() {
     </Layout>
   );
 }
+
+
+
+

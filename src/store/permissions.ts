@@ -12,6 +12,8 @@ const writePermissions = ['block_rooms', 'update_housekeeping', 'create_reservat
 
 export type Permission =
   | 'view_service_payments'
+  | 'view_hr'
+  | 'view_my_payslips'
   | 'view_finance'
   | 'view_inventory'
   | 'view_housekeeping'
@@ -44,6 +46,7 @@ export type Permission =
   | 'view_pos_queue';
 
 const rolePermissions: Record<string, Permission[]> = {
+  HR: [],
   GENERAL_MANAGER: ['view_inventory'],
   ASSISTANT_GENERAL_MANAGER: ['view_inventory'],
   PURCHASE_MANAGER: ['view_inventory'],
@@ -98,6 +101,8 @@ const rolePermissions: Record<string, Permission[]> = {
 export function can(permission: Permission): boolean {
   const user = getUser();
   if (!user) return false;
+  if (permission === 'view_hr') return ['HR','SUPER_ADMIN','CEO','GENERAL_MANAGER','DIRECTOR_OF_FINANCE'].includes(user.role);
+  if (permission === 'view_my_payslips') return true;
   if (permission === 'view_service_payments') return ['ADMIN','SUPER_ADMIN','CEO','GENERAL_MANAGER','DIRECTOR_OF_FINANCE','FRONT_DESK','ACCOUNTS'].includes(user.role);
   if (permission === 'view_finance') return ['ADMIN', 'SUPER_ADMIN', 'CEO', 'ACCOUNTS', 'DIRECTOR_OF_FINANCE'].includes(user.role);
   if (permission === 'record_payments' && ['FRONT_DESK', 'ACCOUNTS'].includes(user.role)) return true;

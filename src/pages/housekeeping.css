@@ -1,0 +1,71 @@
+/* Housekeeping only; the PMS shell and other workspaces retain their styles. */
+/* The existing fixed-width sidebar leaves little phone space. Keep controls readable
+   and let the existing main overflow container scroll; do not restyle navigation. */
+.hk-workspace { padding: 24px; min-width: 340px; max-width: 1600px; margin: auto; color: #243146; font-size: 12px; }
+.hk-workspace button, .hk-workspace select, .hk-dialog button { min-height: 38px; border: 1px solid #dce3eb; border-radius: 7px; padding: 8px 12px; background: white; font: inherit; cursor: pointer; }
+.hk-workspace button:disabled, .hk-workspace select:disabled, .hk-dialog button:disabled { opacity: .5; cursor: not-allowed; }
+.hk-workspace :is(button, select):focus-visible, .hk-dialog button:focus-visible { outline: 2px solid #9a7100; outline-offset: 3px; }
+.hk-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; }
+.hk-header h1 { font-size: 24px; font-weight: 700; letter-spacing: -.5px; margin: 4px 0; }
+.hk-header p, .hk-panel header p { color: #6d798b; margin-top: 4px; }
+.hk-eyebrow { color: #8a6400; text-transform: uppercase; letter-spacing: 1.2px; font-size: 10px; font-weight: 650; }
+.hk-header > button { display: flex; align-items: center; gap: 8px; }
+.hk-overview { display: grid; grid-template-columns: minmax(0,1.15fr) minmax(0,1fr); gap: 18px; margin-bottom: 20px; }
+.hk-metrics { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 14px; }
+.hk-metric { display: flex; align-items: start; justify-content: space-between; gap: 12px; padding: 20px; border: 1px solid #e1e7ef; border-radius: 12px; background: white; box-shadow: 0 2px 8px #1c304604; }
+.hk-metric h2 { font-size: 12px; font-weight: 550; color: #647084; }
+.hk-metric strong { display: block; font-size: 32px; font-weight: 700; color: #253044; margin: 5px 0; }
+.hk-metric p { font-size: 10px; line-height: 1.5; color: #758193; }
+.hk-metric-icon { padding: 10px; border-radius: 10px; background: var(--hk-soft); color: var(--hk-color); flex-shrink: 0; }
+.hk-gold { --hk-soft:#fff7da; --hk-color:#946c00; }
+.hk-green { --hk-soft:#e9f7ef; --hk-color:#237449; }
+.hk-red { --hk-soft:#fff0ef; --hk-color:#bb4343; }
+.hk-amber { --hk-soft:#fff6e2; --hk-color:#9d6600; }
+.hk-neutral { --hk-soft:#edf1f5; --hk-color:#667285; }
+.hk-panel { background: white; border: 1px solid #e1e7ef; border-radius: 12px; padding: 20px; min-width: 0; }
+.hk-panel > header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
+.hk-panel h2 { font-size: 15px; font-weight: 650; }
+.hk-help { font-size: 11px; line-height: 1.6; color: #738093; margin: 10px 0 0; }
+.hk-progress > header svg { color: #a27b1a; }
+.hk-progress-list { max-height: 210px; overflow-y: auto; padding-right: 4px; }
+.hk-person { margin-top: 16px; }
+.hk-person > div { display: flex; justify-content: space-between; gap: 8px; align-items: start; }
+.hk-person span { display: flex; gap: 7px; align-items: center; overflow-wrap: anywhere; min-width: 0; }
+.hk-person svg { flex-shrink: 0; color: #7e8b9d; }
+.hk-person strong { font-size: 11px; white-space: nowrap; }
+.hk-person progress { width: 100%; height: 7px; border: 0; appearance: none; border-radius: 5px; margin-top: 9px; overflow: hidden; background: #edf2f5; }
+.hk-person progress::-webkit-progress-bar { background: #edf2f5; }
+.hk-person progress::-webkit-progress-value { background: #46a479; border-radius: 5px; }
+.hk-person progress::-moz-progress-bar { background: #46a479; }
+.hk-board header label { display: flex; align-items: center; gap: 10px; color: #6d798b; }
+.hk-board-toolbar { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px; align-items: center; border-bottom: 1px solid #edf0f5; padding-bottom: 14px; margin-bottom: 18px; }
+.hk-board-toolbar > span { color: #748093; font-size: 11px; }
+.hk-filters { display: flex; gap: 6px; flex-wrap: wrap; }
+.hk-filters button { border-color: transparent; background: #f5f7fa; color: #647084; }
+.hk-filters button[aria-pressed=true] { background: #fff4d1; color: #7b5b00; border-color: #edce78; font-weight: 600; }
+.hk-room-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(180px,1fr)); gap: 14px; }
+.hk-workspace .hk-room-card { padding: 16px; min-width: 0; text-align: left; border-radius: 10px; border-top: 3px solid var(--hk-color); }
+.hk-workspace .hk-room-card:hover { background: #fcfcfd; box-shadow: 0 3px 12px #1c30460b; }
+.hk-room-top { display: flex; justify-content: space-between; gap: 8px; color: var(--hk-color); }
+.hk-room-number { font-size: 20px; font-weight: 700; color: #253044; overflow-wrap: anywhere; }
+.hk-room-type { margin: 5px 0 12px; min-height: 32px; font-size: 11px; color: #748093; overflow-wrap: anywhere; }
+.hk-badge { display: inline-block; font-size: 10px; font-weight: 600; border-radius: 5px; padding: 5px 8px; background: var(--hk-soft); color: var(--hk-color); }
+.hk-room-recorded { margin-top: 10px; font-size: 10px; color: #758193; }
+.hk-assignee { display: flex; gap: 6px; align-items: start; margin-top: 12px; border-top: 1px solid #edf0f4; padding-top: 10px; color: #647084; font-size: 11px; }
+.hk-assignee svg { flex-shrink: 0; }.hk-assignee span { overflow-wrap: anywhere; }
+.hk-empty { padding: 24px 12px; text-align: center; color: #758193; background: #fafbfc; border: 1px dashed #e2e7ee; border-radius: 8px; margin-top: 12px; }
+.hk-error, .hk-notice { padding: 12px 16px; margin-bottom: 16px; border-radius: 8px; background: #fff0ef; color: #a63939; }
+.hk-notice { background: #e9f7ef; color: #237449; }
+.hk-tasks { margin-top: 20px; }.hk-tasks header span { font-size: 11px; color: #758193; }
+.hk-tasks ul { list-style: none; padding: 0; margin: 0; }
+.hk-tasks li { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; padding: 14px 0; border-top: 1px solid #edf0f5; }
+.hk-tasks li > div { min-width: 0; overflow-wrap: anywhere; }.hk-tasks li p, .hk-tasks li small { color: #748093; margin-top: 3px; }
+.hk-dialog { margin: auto; width: min(560px,calc(100vw - 32px)); max-height: calc(100dvh - 40px); overflow: auto; border: 1px solid #e2e7ee; border-radius: 14px; padding: 24px; color: #243146; font: inherit; font-size: 12px; }
+.hk-dialog::backdrop { background: #15233770; }.hk-dialog header { display: flex; align-items: start; justify-content: space-between; gap: 14px; margin-bottom: 18px; }
+.hk-dialog h2 { font-size: 19px; font-weight: 700; }.hk-dialog h3 { font-weight: 650; margin: 16px 0 8px; }
+.hk-dialog p { margin-top: 5px; color: #647084; overflow-wrap: anywhere; }.hk-dialog dl { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 14px; background: #f8fafc; padding: 14px; border-radius: 8px; }
+.hk-dialog dt { font-size: 11px; color: #758193; margin-bottom: 5px; }.hk-dialog dd { overflow-wrap: anywhere; }.hk-dialog li { padding: 6px 0; overflow-wrap: anywhere; }
+.hk-room-actions > div { display: flex; flex-wrap: wrap; gap: 8px; }.hk-notes { white-space: pre-wrap; }.hk-dialog .hk-close { width: 100%; margin-top: 20px; }
+@media(max-width:1100px) { .hk-overview { grid-template-columns: 1fr; }.hk-metric { padding: 16px; }.hk-progress-list { max-height: 180px; } }
+@media(max-width:600px) { .hk-workspace { padding: 14px; }.hk-header h1 { font-size: 21px; }.hk-panel { padding: 14px; }.hk-metrics { gap: 10px; }.hk-metric { padding: 12px; gap: 5px; }.hk-metric-icon { padding: 6px; }.hk-metric-icon svg { width: 17px; }.hk-metric strong { font-size: 28px; }.hk-room-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }.hk-workspace .hk-room-card { padding: 12px; }.hk-board header label { width: 100%; }.hk-board header select { flex: 1; min-width: 0; }.hk-workspace button { min-height: 44px; } }
+@media(max-width:360px) { .hk-room-grid { grid-template-columns: 1fr; }.hk-metric-icon { display: none; } }

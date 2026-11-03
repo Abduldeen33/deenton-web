@@ -1,3 +1,4 @@
+import FolioInvoicePreview from '../components/FolioInvoicePreview';
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import PaymentReceipt from '../components/PaymentReceipt';
@@ -269,7 +270,7 @@ export default function Billing() {
                         }}
                         className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-lg"
                       >
-                        Send Invoice
+                        View / Print Invoice
                       </button>
                     </div>
                   </div>
@@ -344,46 +345,10 @@ export default function Billing() {
         )}
       </div>
 
-      {/* Invoice Preview Modal */}
-      {showInvoicePreview && selectedFolio && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-800 rounded-2xl border border-slate-700 w-full max-w-lg">
-            <div className="p-6 border-b border-slate-700 flex justify-between items-center">
-              <h3 className="text-lg font-bold text-white">Invoice Preview</h3>
-              <button onClick={() => setShowInvoicePreview(false)} className="text-slate-400 hover:text-white">✕</button>
-            </div>
-            <div className="p-6 space-y-4">
-              <div>
-                <p className="text-slate-400 text-sm mb-1">Guest</p>
-                <p className="text-white font-medium">
-                  {selectedFolio.reservation?.guest?.firstName} {selectedFolio.reservation?.guest?.lastName}
-                </p>
-              </div>
-              <div>
-                <p className="text-slate-400 text-sm mb-1">Reservation</p>
-                <p className="text-white font-medium">#{selectedFolio.reservation?.resNumber}</p>
-              </div>
-              <div>
-                <p className="text-slate-400 text-sm mb-1">Amount due</p>
-                <p className="text-green-400 font-bold text-xl">${selectedFolio.balance?.toFixed(2)}</p>
-              </div>
-              <div>
-                <label className="block text-sm text-slate-400 mb-1">Send to email</label>
-                <input
-                  type="email"
-                  value={paymentForm.email}
-                  onChange={(e) => setPaymentForm({ ...paymentForm, email: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm"
-                />
-              </div>
-              <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setShowInvoicePreview(false)} className="flex-1 py-3 bg-slate-700 text-white rounded-lg text-sm">Cancel</button>
-                <button type="button" onClick={handleSendInvoice} disabled={!canOperate()} className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg text-sm">Send Invoice</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {showInvoicePreview && selectedFolio && <FolioInvoicePreview
+        id={selectedFolio.id} email={paymentForm.email} onEmailChange={email => setPaymentForm({ ...paymentForm, email })}
+        onSend={handleSendInvoice} canSend={canOperate()} onClose={() => setShowInvoicePreview(false)}
+      />}
 
       {/* Add Charge Modal */}
       {showChargeForm && (

@@ -18,6 +18,7 @@ export default function Login() {
     try {
       const response = await login(form.propertyCode, form.email, form.password);
       setAuth(response.access_token, response.user);
+      if (response.user.role === 'HR') { navigate('/hr'); return; }
       if (['ACCOUNTS', 'DIRECTOR_OF_FINANCE'].includes(response.user.role)) { navigate('/finance'); return; }
       if (['SUPER_ADMIN', 'CEO'].includes(response.user.role)) {
         navigate('/super-admin');

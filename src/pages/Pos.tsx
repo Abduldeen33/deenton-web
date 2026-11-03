@@ -9,7 +9,9 @@ import PosItemOptions, { menuLabels, type Modifier, type CustomLine } from '../c
 import PosOfflineOrders, { posDeviceKey, saveOfflineOrder } from '../components/PosOfflineOrders';
 import PosMenuSetup from '../components/PosMenuSetup';
 import RestaurantPosShell from '../components/RestaurantPosShell';
+import '../components/restaurant-pos-register.css';
 import RestaurantPosDashboard from '../components/RestaurantPosDashboard';
+import PosStaffSales from '../components/PosStaffSales';
 import type { RestaurantTable } from '../components/PosTables';
 import Layout from '../components/Layout';
 import PosTables from '../components/PosTables';
@@ -199,14 +201,17 @@ export default function Pos() {
 
   function navigateRestaurant(section: string) {
     if (section === 'qr' && canManage) { openDialog('qr'); return; }
-    setActiveSection(section); setShowDashboard(['dashboard','reports'].includes(section));
-    if (['settings','modifiers'].includes(section) && canConfigure) setShowSetup(true);
-    requestAnimationFrame(() => document.getElementById(['dashboard','reports'].includes(section) ? 'restaurant-dashboard' : section === 'tables' ? 'restaurant-tables' : section === 'categories' ? 'restaurant-categories' : section === 'menu' ? 'restaurant-menu' : 'restaurant-tools')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    if (busy) return;
+    setActiveSection(section); setShowDashboard(section === 'dashboard');
+    if (section === 'modifiers' && canConfigure) setShowSetup(true);
+    const targets: Record<string,string> = { dashboard:'restaurant-dashboard', reports:'restaurant-reports', tables:'restaurant-tables', categories:'restaurant-categories', menu:'restaurant-menu', modifiers:'restaurant-configuration', billing:'restaurant-payments', shifts:'restaurant-shifts', refunds:'restaurant-refunds', history:'restaurant-history', settings:'restaurant-settings' };
+    requestAnimationFrame(() => document.getElementById(targets[section] || 'restaurant-tools')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   }
-  return <RestaurantPosShell active={activeSection} onNavigate={navigateRestaurant} search={restaurantSearch} onSearch={setRestaurantSearch} busy={busy} hasDraft={cart.length > 0}><div className="text-sm text-slate-700">
+  return <RestaurantPosShell active={activeSection} onNavigate={navigateRestaurant} search={restaurantSearch} onSearch={setRestaurantSearch} busy={busy} hasDraft={cart.length > 0}><div className="rp-register-page text-sm text-slate-700">
     <header className="rp-action-bar">
       <div><h2 className="text-lg font-semibold text-slate-900">Restaurant POS</h2><p className="mt-1 text-xs text-slate-500">Food, drinks and room charges · USD / Leones</p></div>
       <div className="flex flex-wrap gap-2">
+        {can('view_inventory') && <Link data-anzak-inventory-action to="/inventory?new=item" className={button + (busy ? ' pointer-events-none opacity-50' : '')} aria-disabled={busy} onClick={e => { if (busy || (cart.length > 0 && !window.confirm('Leave the POS register? Your unsent order items will be lost.'))) e.preventDefault(); }}>Add inventory</Link>}
         {can('view_pos_queue') && <Link to="/pos-queues" className={button}>Order queues & payments</Link>}
         {canManage && <button className={button} onClick={() => openDialog('qr')}><QrCode size={15} className="inline mr-2" />Guest menu QR</button>}
         {canManage && <><button className={button} onClick={() => openDialog('category')}>+ Category</button>
@@ -216,12 +221,14 @@ export default function Pos() {
     {loadError && !!menu.length && <p role="alert" className="mb-4 rounded bg-amber-50 p-3">Offline/cached menu: {loadError} Prices and stock will be validated when you sync. No payments can be recorded offline.</p>}
     {message && <div role="status" className="mb-4 rounded-lg border border-indigo-200 bg-indigo-50 p-3">{message}</div>}
     {showDashboard && <RestaurantPosDashboard currency={currency} rate={exchangeRate} revision={tableRevision} onCurrencyChange={setCurrency} />}
-    <div className="restaurant-workspace">
+    <div className="restaurant-workspace rp-register-workspace">
     <div className="restaurant-order-column">
-      <section id="restaurant-categories" className="rp-category-rail" aria-label="Menu categories"><h3>Categories</h3><div className="rp-category-tabs"><button aria-pressed={categoryFilter === 'ALL'} onClick={() => setCategoryFilter('ALL')}>All</button>{menu.map(c => <button key={c.id} aria-pressed={categoryFilter === c.id} onClick={() => setCategoryFilter(c.id)}>{c.name}</button>)}</div></section>
       <section id="restaurant-menu" className="rp-menu-panel">
         <div className="rp-menu-heading"><h3><UtensilsCrossed size={20}/>Food Menu</h3><input aria-label="Search food menu" placeholder="Search menu items…" value={restaurantSearch} onChange={e => setRestaurantSearch(e.target.value)} /></div>
-    <label className="mb-4 block">Service menu<select aria-label="Service menu" className={field + ' max-w-sm'} value={menuType} onChange={e => setMenuType(e.target.value)}><option value="ALL">All enabled menus</option>{Object.entries(menuLabels).map(([key,label]) => <option key={key} value={key}>{label}</option>)}</select></label>
+        <div className="rp-register-filters">
+          <label className="rp-service-filter">Service menu<select aria-label="Service menu" className={field} value={menuType} onChange={e => setMenuType(e.target.value)}><option value="ALL">All enabled menus</option>{Object.entries(menuLabels).map(([key,label]) => <option key={key} value={key}>{label}</option>)}</select></label>
+          <section id="restaurant-categories" className="rp-category-rail" aria-label="Menu categories"><h3>Categories</h3><div className="rp-category-tabs"><button aria-pressed={categoryFilter === 'ALL'} onClick={() => setCategoryFilter('ALL')}>All</button>{menu.map(c => <button key={c.id} aria-pressed={categoryFilter === c.id} onClick={() => setCategoryFilter(c.id)}>{c.name}</button>)}</div></section>
+        </div>
       <div className="rp-menu-scroll">
         {loading ? <p className="p-8">Loading menu…</p> : loadError && !menu.length ? <div role="alert" className="rounded-xl bg-red-50 border border-red-200 p-6"><p>{loadError}</p><button className={button + ' mt-3'} onClick={() => void loadMenu()}><RefreshCw size={14} className="inline mr-2" />Retry</button></div> : <>
           {!itemCount && <div className="rounded-xl border border-dashed border-slate-300 bg-white px-6 py-14 text-center">
@@ -233,8 +240,8 @@ export default function Pos() {
             <h3 className="mb-3 font-semibold">{category.name} <span className="text-xs font-normal text-slate-400">({category.items.length})</span></h3>
             {!category.items.length && <p className="text-slate-400 text-xs">No items in this category yet.</p>}
             <div className="rp-food-grid">{category.items.filter(item => (menuType === 'ALL' || (item.menuType || 'REGULAR') === menuType) && (!restaurantSearch || (item.name + ' ' + (item.description || '')).toLowerCase().includes(restaurantSearch.toLowerCase()))).map(item => <div key={item.id} className="rp-food-card"><button disabled={busy || !canSellPos()} onClick={() => add(item)} className="overflow-hidden rounded-lg border border-slate-200 text-left hover:border-indigo-400 hover:shadow-sm">
-              {item.imageUrl ? <img src={item.imageUrl} alt={item.name} className="h-32 w-full object-cover" /> : <div className="h-24 bg-slate-50 flex items-center justify-center"><UtensilsCrossed className="text-slate-300" /></div>}
-              <div className="p-3"><p className="font-medium text-slate-900">{item.name}</p>{item.description && <p className="text-xs text-slate-500 mt-1">{item.description}</p>}<p className="mt-2 font-semibold text-indigo-600">{money(price(item.price))}</p></div>
+              {item.imageUrl ? <img src={item.imageUrl} alt={item.name} className="rp-food-image" /> : <div className="rp-food-image rp-food-placeholder"><UtensilsCrossed /></div>}
+              <div className="rp-food-info"><p className="font-medium text-slate-900">{item.name}</p>{item.description && <p className="rp-food-description text-xs text-slate-500 mt-1" title={item.description}>{item.description}</p>}<div className="rp-food-price-row"><p className="font-semibold text-indigo-600">{money(price(item.price))}</p><span className="rp-food-add"><Plus size={14}/>Add</span></div></div>
             </button><button disabled={busy || !canSellPos()} className={button + ' mt-1 w-full'} onClick={() => setConfigure(item)}>Customize / allergy notes</button>{canManage && <label className="mt-2 block text-xs">Send to<select aria-label={`Preparation station for ${item.name}`} className={field + ' mt-1'} value={item.station} disabled={busy} onChange={async e => {
                 setBusy(true);
                 try { await api.patch(`/pos/menu-items/${item.id}/station`, { station: e.target.value }); await loadMenu(); }
@@ -243,9 +250,11 @@ export default function Pos() {
               }}><option value="KITCHEN">Kitchen (food)</option><option value="BAR">Bar (drinks)</option></select></label>}</div>)}</div>
           </div>)}
         </>}
-      </div><div className="rp-register-checkout"><button disabled={busy || !canSellPos() || !cart.length} onClick={() => { setMethod('PAY_AT_COUNTER'); setOrderDetails(true); requestAnimationFrame(() => document.querySelector<HTMLInputElement>('[aria-label="Order guest name"]')?.focus()); }}>Review &amp; send · {cart.reduce((n, item) => n + item.quantity, 0)} items</button><button disabled={busy || !canSellPos() || !cart.length} onClick={() => { setMethod('CASH'); setOrderDetails(true); requestAnimationFrame(() => document.querySelector<HTMLInputElement>('[aria-label="Order guest name"]')?.focus()); }}>Review &amp; pay · {money(shownTotal)}</button></div></section>
+      </div></section>
       <aside className="rp-order-summary" id="restaurant-register">
-        <PosOrderSummary table={selectedTable} disabled={busy || !tableState.ready} total={money(shownTotal)} hasItems={!!cart.length} cart={<div className="my-4 space-y-3">{cart.length ? cart.map(item => <div className="rp-register-line" key={item.id}>
+        <a className="rp-register-table-link" href="#restaurant-tables">{selectedTable ? 'Change table' : 'Choose a table'} <span>View table management →</span></a>
+        <PosOrderSummary checkoutActions={<div className="rp-register-checkout"><button disabled={busy || !canSellPos() || !cart.length} onClick={() => { setMethod('PAY_AT_COUNTER'); setOrderDetails(true); requestAnimationFrame(() => document.querySelector<HTMLInputElement>('[aria-label="Order guest name"]')?.focus()); }}>Review &amp; send · {cart.reduce((n, item) => n + item.quantity, 0)} items</button><button disabled={busy || !canSellPos() || !cart.length} onClick={() => { setMethod('CASH'); setOrderDetails(true); requestAnimationFrame(() => document.querySelector<HTMLInputElement>('[aria-label="Order guest name"]')?.focus()); }}>Review &amp; pay · {money(shownTotal)}</button></div>}
+          table={selectedTable} disabled={busy || !tableState.ready} total={money(shownTotal)} hasItems={!!cart.length} cart={<div className="my-4 space-y-3">{cart.length ? cart.map(item => <div className="rp-register-line" key={item.id}>
           <div className="flex justify-between gap-2"><span>{item.name}</span><span>{money(price(item.price) * item.quantity)}</span></div><p className="text-xs">Course {item.course || 1} {item.cookingNotes && '· ' + item.cookingNotes}</p>{item.allergyNotes && <p className="text-xs font-semibold text-red-700">ALLERGY: {item.allergyNotes}</p>}
           <div className="mt-1 flex items-center gap-3"><button className={button} disabled={busy} aria-label={`Remove one ${item.name}`} onClick={() => setCart(c => c.map(i => i.id === item.id ? { ...i, quantity: i.quantity - 1 } : i).filter(i => i.quantity > 0))}>−</button><span>{item.quantity}</span><button className={button} disabled={busy} aria-label={`Add one ${item.name}`} onClick={() => add(item)}>+</button></div>
         </div>) : <p className="rp-cart-empty">Choose menu items to begin.</p>}</div>} onChange={() => setTableRevision(n => n + 1)} onReceipt={id => setReceiptTarget({ id, copy: 'RESTAURANT' })} onAdd={() => { setOrderDetails(true); requestAnimationFrame(() => { const input = document.querySelector<HTMLInputElement>('[aria-label="Order guest name"]'); input?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); input?.focus({ preventScroll: true }); }); }} />
@@ -270,12 +279,12 @@ export default function Pos() {
     <PosTables search={restaurantSearch} onSelected={setSelectedTable} value={tableId} onChange={id => { setTableId(id); setOrderType('DINE_IN'); }} onAvailability={setTableState} canManage={canManage} disabled={busy} revision={tableRevision} />
     <section id="restaurant-tools" className="rp-operations rp-settings-heading"><h2>Restaurant tools & settings</h2>
     {canConfigure && <button className={button + ' mb-4'} onClick={() => setShowSetup(!showSetup)}>{showSetup ? 'Close menu setup' : 'Menu & recipe setup'}</button>}
-    {showSetup && canConfigure && <PosMenuSetup onChange={() => void loadMenu()} />}
+    <div id="restaurant-configuration">{showSetup && canConfigure && <PosMenuSetup onChange={() => void loadMenu()} />}</div>
     {configure && <PosItemOptions item={configure} currency={currency} rate={exchangeRate} onClose={() => setConfigure(null)} onAdd={item => { add(item); setConfigure(null); }} />}
-    <PosCashierShift revision={tableRevision} />
-    {canSellPos() && <PosMyPayments revision={tableRevision} onPaid={id => { setTableRevision(n => n + 1); setReceiptTarget({ id, copy: 'RESTAURANT' }); }} />}
-    <PosReversals onChange={() => setTableRevision(n => n + 1)} onReceipt={setReceiptTarget} />
-    <section className="mb-4 rounded-lg border border-slate-200 bg-white p-4">
+    <div id="restaurant-shifts"><PosCashierShift revision={tableRevision} /></div>
+    <div id="restaurant-payments">{canSellPos() && <PosMyPayments revision={tableRevision} onPaid={id => { setTableRevision(n => n + 1); setReceiptTarget({ id, copy: 'RESTAURANT' }); }} />}</div>
+    <div id="restaurant-refunds"><PosReversals onChange={() => setTableRevision(n => n + 1)} onReceipt={setReceiptTarget} /></div>
+    <section id="restaurant-settings" className="mb-4 rounded-lg border border-slate-200 bg-white p-4">
       <div className="flex flex-wrap items-end gap-4">
         <label className="text-xs">Display prices in<select aria-label="Price currency" value={currency} disabled={busy} onChange={e => { setCurrency(e.target.value as Currency); setPaymentCurrency(e.target.value as Currency); }} className={field + ' mt-1'}><option value="SLL" disabled={!exchangeRate}>SLL — Leones</option><option value="USD">USD — US Dollar</option></select></label>
         <p className="text-xs text-slate-500">{exchangeRate ? `1 USD = ${Number(exchangeRate).toLocaleString('en-US', { maximumFractionDigits: 4 })} Leones` : 'An administrator must set the exchange rate to enable Leones.'}</p>
@@ -287,7 +296,8 @@ export default function Pos() {
       </form>}
     </section>
     <PosOfflineOrders onSynced={() => { setTableRevision(n => n + 1); void loadMenu(); }} />
-    <PosReceiptHistory onOpen={setReceiptTarget} preparationStations={role === 'BAR' ? ['BAR'] : undefined} />
+    <div id="restaurant-history"><PosReceiptHistory onOpen={setReceiptTarget} preparationStations={role === 'BAR' ? ['BAR'] : undefined} /></div>
+    {activeSection === 'reports' && canManage && <div id="restaurant-reports"><PosStaffSales revision={tableRevision}/></div>}
     {canSellPos() && <p className="mb-4 text-xs">For split bills or multiple payment methods, place the order with Pay later, then use My orders awaiting payment below or your authorized cashier workspace.</p>}
     {lastOrderId && <button className={button + ' mb-4'} onClick={() => setReceiptTarget({ id: lastOrderId, copy: 'RESTAURANT' })}>Last order receipt</button>}
     {receiptTarget && <PosReceipt target={receiptTarget} onClose={() => setReceiptTarget(null)} />}

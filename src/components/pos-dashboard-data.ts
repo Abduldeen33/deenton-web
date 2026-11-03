@@ -1,13 +1,13 @@
 export type DashboardOrder = {
   id: string; orderNumber: string; guestName?: string; serviceLocation?: string;
   total: string; billingStatus: string; createdAt: string; source?: string;
-  paymentMethod?: string; splitBill?: { shares: { tenders: { method: string; amountUsd: string }[] }[] } | null;
+  receivedUsd?: string; paymentMethod?: string; splitBill?: { shares: { tenders: { method: string; amountUsd: string }[] }[] } | null;
 };
 export const paymentLabels = ['Cash', 'Card', 'Mobile / other', 'Unclassified'];
 export function paymentValues(order: DashboardOrder): number[] {
   const values = [0, 0, 0, 0];
-  if (order.billingStatus !== 'PAID') return values;
-  const total = Number(order.total);
+  if (order.billingStatus !== 'PAID' && !(order.billingStatus === 'AWAITING_PAYMENT' && Number(order.receivedUsd) > 0)) return values;
+  const total = Number(order.billingStatus === 'PAID' ? order.total : order.receivedUsd);
   if (!Number.isFinite(total) || total < 0) return values;
   const bucket = (method?: string) => method === 'CASH' ? 0 : method === 'CARD' ? 1 : method && method !== 'SPLIT' ? 2 : 3;
   if (order.paymentMethod !== 'SPLIT') { values[bucket(order.paymentMethod)] = total; return values; }

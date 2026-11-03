@@ -72,6 +72,17 @@ function exportCsv(rows: any[]) {
 export default function FrontDeskFinance() {
   const [params] = useSearchParams();
   const [tab, setTab] = useState(params.get('tab') === 'corporate' ? 'corporate' : 'cash');
+ useEffect(() => {
+  const requestedTab = params.get('tab');
+
+  if (requestedTab === 'corporate') {
+    setTab('corporate');
+  } else if (requestedTab === 'accounts') {
+    setTab('accounts');
+  } else {
+    setTab('cash');
+  }
+}, [params]);
   const [invoiceId, setInvoiceId] = useState(''), [printInvoice, setPrintInvoice] = useState('');
   const [from, setFrom] = useState(today),
     [to, setTo] = useState(today);

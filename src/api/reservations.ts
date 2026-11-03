@@ -25,6 +25,11 @@ export const sendReservationEmail = async (id: string, email?: string) => {
   return response.data;
 };
 
+export const cancelReservation = async (id: string, reason: string) => {
+  const response = await api.patch(`/reservations/${id}/cancel`, { reason });
+  return response.data;
+};
+
 export const checkIn = async (id: string) => {
   const response = await api.patch(`/reservations/${id}/checkin`);
   return response.data;

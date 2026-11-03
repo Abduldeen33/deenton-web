@@ -1,0 +1,12 @@
+main:has(.reservation-ledger-table){min-width:0}
+.reservation-ledger-table {
+  min-width: 1400px;
+  width: max-content;
+}
+.reservation-ledger-table th{width:auto!important;white-space:nowrap}
+.reservation-ledger-table td{min-width:105px}
+.reservation-ledger-table td:first-child{min-width:170px}
+.reservation-ledger-table td[data-financial]{white-space:nowrap}
+.reservation-ledger-table td[data-financial] button:hover{text-decoration:underline}
+.reservation-ledger-table [aria-sort=ascending] button:after{content:' ↑'}
+.reservation-ledger-table [aria-sort=descending] button:after{content:' ↓'}

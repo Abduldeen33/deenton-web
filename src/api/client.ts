@@ -12,7 +12,7 @@ api.interceptors.request.use((config) => {
   const permittedPayment = config.method?.toLowerCase() === 'post' && can('record_payments') && (['/billing/payment', '/billing/service-payments'].includes(config.url || '') || /^\/billing\/house-accounts\/[^/]+\/payments$/.test(config.url || ''));
   const permittedNightAudit = config.url === '/night-audit/run' && config.method?.toLowerCase() === 'post' && can('night_audit');
   const permittedReservation = config.url === '/reservations' && config.method?.toLowerCase() === 'post' && can('create_reservations');
-  const permittedPosSale = ['RESTAURANT', 'BAR'].includes(getUser()?.role || '') && config.method?.toLowerCase() === 'post' && /^(\/pos\/orders|\/pos\/orders\/[^/]+\/(settle|split-bill)|\/pos\/shifts|\/pos\/shifts\/[^/]+\/close)$/.test(config.url || '');
+  const permittedPosSale = ['RESTAURANT', 'BAR'].includes(getUser()?.role || '') && config.method?.toLowerCase() === 'post' && /^(\/pos\/orders|\/pos\/orders\/[^/]+\/(settle|split-bill|collections)|\/pos\/shifts|\/pos\/shifts\/[^/]+\/close)$/.test(config.url || '');
   if (getUser() && !canOperate() && !permittedPrint && !permittedChef && !permittedPosSale && !permittedPayment && !permittedNightAudit && !permittedReservation && !['get', 'head', 'options'].includes((config.method || 'get').toLowerCase()) && !config.url?.startsWith('/auth/')) {
     return Promise.reject(new axios.AxiosError('Your staff account is view-only. Ask your supervisor or manager.', 'ERR_FORBIDDEN', config, undefined, { status: 403, statusText: 'Forbidden', data: { message: 'Your staff account is view-only. Ask your supervisor or manager.' }, headers: {}, config }));
   }

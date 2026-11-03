@@ -1,5 +1,10 @@
 import api from './client';
 
+export const getStayView = async (start: string | undefined, days: number, signal?: AbortSignal) => {
+  const response = await api.get('/rooms/stay-view', { params: { start, days }, signal });
+  return response.data;
+};
+
 export const getRooms = async () => {
   const response = await api.get('/rooms');
   return response.data;

@@ -6,11 +6,11 @@ import { canOperate, canSellPos } from '../store/permissions';
 import type { RestaurantTable } from './PosTables';
 import PosSplitBill from './PosSplitBill';
 
-type Props = { table: RestaurantTable | null; disabled: boolean; total: string; cart: ReactNode; hasItems: boolean; onChange: () => void; onAdd: () => void; onReceipt: (id: string) => void };
+type Props = { table: RestaurantTable | null; disabled: boolean; total: string; cart: ReactNode; hasItems: boolean; checkoutActions?: ReactNode; onChange: () => void; onAdd: () => void; onReceipt: (id: string) => void };
 type Waiter = { id: string; name: string };
 const labels: Record<string, string> = { AVAILABLE: 'Available', RESERVED: 'Reserved', OCCUPIED: 'Occupied', AWAITING_FOOD: 'Awaiting food', AWAITING_PAYMENT: 'Awaiting payment' };
 
-export default function PosOrderSummary({ table, disabled, total, cart, hasItems, onChange, onAdd, onReceipt }: Props) {
+export default function PosOrderSummary({ table, disabled, total, cart, hasItems, checkoutActions, onChange, onAdd, onReceipt }: Props) {
   const [guests, setGuests] = useState(0), [waiter, setWaiter] = useState('');
   const [waiters, setWaiters] = useState<Waiter[]>([]), [waiterError, setWaiterError] = useState('');
   const [error, setError] = useState(''), [notice, setNotice] = useState(''), [busy, setBusy] = useState(false);
@@ -62,6 +62,9 @@ export default function PosOrderSummary({ table, disabled, total, cart, hasItems
       <div className={'rp-summary-cart' + (!hasItems ? ' is-empty' : '')}>{hasItems ? cart : <><FileText size={30}/><p>No items in order</p><small>Select items from the menu<br/>to add to this order.</small></>}</div>
       <dl className="rp-summary-totals"><div><dt>Subtotal</dt><dd>{total}</dd></div><div><dt>Tax</dt><dd title="No additional POS tax is configured">Not configured</dd></div><div className="rp-summary-total"><dt>Total</dt><dd>{total}</dd></div></dl>
     </div>
+    {checkoutActions}
+    <details className="rp-table-actions-panel">
+      <summary>Table Actions</summary>
     <div className="rp-summary-actions">
       <button className="seat" disabled={noTable || guests < 1} onClick={() => save('SEAT')}><Users/>Seat Guests</button>
       <button disabled={noTable || !!waiterError} onClick={() => save('WAITER')}><UserRound/>Assign Waiter</button>
@@ -71,6 +74,7 @@ export default function PosOrderSummary({ table, disabled, total, cart, hasItems
       <button className="reserve" disabled={noTable || status !== 'AVAILABLE'} onClick={() => save('RESERVE')}><CalendarDays/>Mark Reserved</button>
       <button className="close-table" disabled={noTable || status === 'AVAILABLE'} onClick={() => save('CLOSE')}><LockKeyhole/>Close Table</button>
     </div>
+    </details>
     {!table && <p className="rp-summary-help">Select a table to manage guests and service.</p>}
     {table?.reserved && <p className="rp-summary-help">Reserved: set the guest count and select Seat Guests before adding an order.</p>}
     {notice && <p role="status" className="rp-summary-notice">{notice}</p>}

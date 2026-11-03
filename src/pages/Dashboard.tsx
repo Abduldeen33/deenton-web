@@ -1,343 +1,117 @@
-import PosStaffSales from '../components/PosStaffSales';
 import { useEffect, useState } from 'react';
-import { getDashboard } from '../api/reports';
-import Layout from '../components/Layout';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import api from '../api/client';
 import { Link } from 'react-router-dom';
+import { isAxiosError } from 'axios';
+import { BedDouble, DoorOpen, Users, CalendarCheck, LogOut, Clock3, Brush, RefreshCw, ArrowUpRight, TrendingUp, Wrench, UtensilsCrossed, Building2 } from 'lucide-react';
+import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
+import Layout from '../components/Layout';
+import PosStaffSales from '../components/PosStaffSales';
+import api from '../api/client';
 import { can } from '../store/permissions';
+import { getUser } from '../store/auth';
+import { stayLabels } from '../components/stay-view-data';
+import { dashboardOverview, dateLabel, taskOverview, roomUnavailable, type RoomSnapshot, type DashboardStay, type OperationTask } from './hotel-dashboard-data';
+import './hotel-dashboard.css';
+
+type Resource<T> = { data: T | null; error: string | null };
+type DashboardData = { key: string; updated: Date; rooms: Resource<RoomSnapshot>; stays: Resource<DashboardStay[]>; cleaning: Resource<OperationTask[]>; maintenance: Resource<OperationTask[]> };
+function failure(error: unknown) {
+  return isAxiosError(error) && error.response?.status === 403 ? 'Access not authorized for this account.' : 'Could not load this information. Try Refresh overview.';
+}
+const count = (value: number | null | undefined) => value == null ? '—' : value.toLocaleString('en-GB');
+const emptyResource = { data: null, error: null };
+
+function StayPanel({ title, description, rows, loading, error, empty }: {
+  title: string; description: string; rows: DashboardStay[] | null; loading: boolean; error?: string | null; empty: string;
+}) {
+  return <section className="hotel-dash-panel" aria-label={title}>
+    <div className="hotel-dash-panel-heading"><div><h2>{title}</h2><p>{description}</p></div><span className="hotel-dash-count">{loading ? '…' : count(rows?.length)}</span></div>
+    {loading ? <p className="hotel-dash-empty">Loading stays…</p> : error ? <p className="hotel-dash-empty" role="alert">{error}</p> : rows === null ? <p className="hotel-dash-empty">Hotel date or reservation data is unavailable.</p> : rows.length === 0 ? <p className="hotel-dash-empty">{empty}</p> : <div className="hotel-dash-table-scroll"><table>
+      <thead><tr><th>Guest / booking</th><th>Room</th><th>Expected checkout</th><th>Status</th><th><span className="sr-only">Details</span></th></tr></thead>
+      <tbody>{rows.map(r => <tr key={r.id}>
+        <td><strong>{r.guest ? `${r.guest.firstName} ${r.guest.lastName}` : 'Guest name not recorded'}</strong><small>{r.resNumber || 'Reference not recorded'}</small></td>
+        <td>{r.room?.roomNumber || 'Not recorded'}<small>{r.room?.roomType?.name}</small></td>
+        <td>{dateLabel(r.departureDate?.slice(0, 10))}</td>
+        <td><span className={`hotel-dash-badge ${r.status === 'RESERVED' ? 'violet' : 'green'}`}>{stayLabels[r.status] || r.status}</span></td>
+        <td><Link className="hotel-dash-detail" to={`/reservations?reservation=${encodeURIComponent(r.id)}`} aria-label={`Booking details ${r.resNumber || r.id}`}><ArrowUpRight size={16}/></Link></td>
+      </tr>)}</tbody>
+    </table></div>}
+  </section>;
+}
 
 export default function Dashboard() {
-  const inventoryShortcut=can('view_inventory') ? <Link to="/inventory?new=item" className="inline-flex rounded bg-indigo-600 px-4 py-2 text-sm font-semibold text-white">Add inventory</Link> : null;
-  const [data, setData] = useState<any>(null);
-  const [advanced, setAdvanced] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-
+  const user = getUser();
+  const viewRooms = can('view_rooms'), viewStays = can('view_reservations'), viewCleaning = can('view_housekeeping'), viewMaintenance = can('view_maintenance');
+  const viewPosSales = ['ADMIN', 'SUPER_ADMIN', 'CEO'].includes(user?.role || '');
+  const [revision, setRevision] = useState(0);
+  const [data, setData] = useState<DashboardData | null>(null);
+  const key = JSON.stringify([user?.id, user?.propertyCode, user?.role, user?.accessLevel, revision]);
+  const loading = data?.key !== key;
+  const current = loading ? null : data;
   useEffect(() => {
-    Promise.all([
-      getDashboard(),
-      api.get('/reports/advanced'),
-    ])
-      .then(([dash, adv]) => {
-        setData(dash);
-        setAdvanced(adv.data);
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, []);
-
-  if (loading) {
-    return (
-      <Layout>
-        {inventoryShortcut && <div className="p-4">{inventoryShortcut}</div>}
-        <div className="flex items-center justify-center h-full">
-          <div className="text-slate-400">Loading dashboard...</div>
-        </div>
-      </Layout>
-    );
-  }
-
-  const statCards = [
-    { label: 'Arrivals Today', value: data?.arrivalsToday ?? 0, color: 'bg-gradient-to-br from-blue-500 to-blue-600', icon: '✈️', accent: 'text-blue-600 bg-blue-50' },
-    { label: 'Departures', value: data?.departuresToday ?? 0, color: 'bg-gradient-to-br from-amber-500 to-orange-500', icon: '🚪', accent: 'text-amber-600 bg-amber-50' },
-    { label: 'In House', value: data?.inHouse ?? 0, color: 'bg-gradient-to-br from-emerald-500 to-green-600', icon: '🏨', accent: 'text-emerald-600 bg-emerald-50' },
-    { label: 'Available Rooms', value: data?.occupancy?.vacant ?? 0, color: 'bg-gradient-to-br from-violet-500 to-purple-600', icon: '🛏️', accent: 'text-violet-600 bg-violet-50' },
+    const controller = new AbortController();
+    async function read<T>(enabled: boolean, url: string, valid: (value: T) => boolean): Promise<Resource<T>> {
+      if (!enabled) return emptyResource;
+      try {
+        const response = await api.get<T>(url, { signal: controller.signal, timeout: 20000 });
+        if (!valid(response.data)) throw new Error('Incomplete dashboard response');
+        return { data: response.data, error: null };
+      } catch (error) { return { data: null, error: failure(error) }; }
+    }
+    void Promise.all([
+      read<RoomSnapshot>(viewRooms, '/rooms/stay-view?days=7', r => !!r && Array.isArray(r.rooms) && Array.isArray(r.reservations)),
+      read<DashboardStay[]>(viewStays, '/reservations', Array.isArray),
+      read<OperationTask[]>(viewCleaning, '/housekeeping', Array.isArray),
+      read<OperationTask[]>(viewMaintenance, '/maintenance', Array.isArray),
+    ]).then(([rooms, stays, cleaning, maintenance]) => {
+      if (!controller.signal.aborted) setData({ key, updated: new Date(), rooms, stays, cleaning, maintenance });
+    });
+    return () => controller.abort();
+  }, [key, viewRooms, viewStays, viewCleaning, viewMaintenance]);
+  const overview = dashboardOverview(current?.rooms.data ?? null, current?.stays.data ?? null, current?.updated ?? new Date());
+  const cleaning = taskOverview(current?.cleaning.data ?? null), maintenance = taskOverview(current?.maintenance.data ?? null);
+  const metrics = [
+    ...(viewRooms ? [
+      { label: 'Total rooms', value: count(overview.totalRooms), note: `${count(overview.sellable)} sellable rooms`, icon: Building2, tone: 'violet' },
+      { label: 'Occupied rooms', value: count(overview.occupied), note: overview.occupancyRate == null ? 'Occupancy rate unavailable' : `${overview.occupancyRate.toFixed(1)}% of sellable rooms`, icon: BedDouble, tone: 'green' },
+      { label: 'Available rooms', value: count(overview.available), note: 'Booking availability · readiness separate', icon: DoorOpen, tone: 'violet' },
+    ] : []),
+    ...(viewStays ? [
+      { label: 'In-house guests', value: count(overview.guestCount), note: `${count(overview.inHouse?.length)} checked-in bookings · includes due out`, icon: Users, tone: 'green' },
+      { label: 'Arrivals today', value: count(overview.arrivals?.length), note: 'Scheduled today · awaiting check-in', icon: CalendarCheck, tone: 'violet' },
+      { label: 'Departures today', value: count(overview.departed?.length), note: 'Completed checkouts · actual timestamps', icon: LogOut, tone: 'neutral' },
+      { label: 'Due out today', value: count(overview.dueOut?.length), note: 'Expected departures · still in-house', icon: Clock3, tone: 'amber' },
+    ] : []),
+    ...(viewRooms ? [{ label: 'Dirty rooms', value: count(overview.dirty), note: 'Cleanliness only · may also be occupied', icon: Brush, tone: 'amber' }] : []),
   ];
-
-  const chartData = advanced?.dailyTrend?.slice(-14).map((d: any) => ({
-    date: new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-    revenue: d.revenue,
-  })) ?? [];
-
-  const roomStatusData = data?.roomStatusBreakdown?.length
-    ? data.roomStatusBreakdown
-    : [
-        { name: 'Occupied', value: data?.occupancy?.occupied ?? 0, color: '#22c55e' },
-        { name: 'Vacant', value: data?.occupancy?.vacant ?? 0, color: '#3b82f6' },
-        { name: 'Reserved', value: data?.occupancy?.reserved ?? 0, color: '#f59e0b' },
-        { name: 'Dirty', value: data?.occupancy?.dirty ?? 0, color: '#ef4444' },
-        { name: 'Blocked', value: data?.occupancy?.blocked ?? 0, color: '#94a3b8' },
-      ];
-
-  const paymentMethodData = data?.revenueByPaymentMethod?.length
-    ? data.revenueByPaymentMethod
-    : [{ name: 'No payments', value: 0, color: '#cbd5e1' }];
-
-  const guestMixData = data?.guestMixBreakdown?.length
-    ? data.guestMixBreakdown
-    : [{ name: 'Adults', value: data?.guestMetrics?.adults ?? 0, color: '#3b82f6' }, { name: 'Children', value: data?.guestMetrics?.children ?? 0, color: '#f59e0b' }];
-
-  return (
-    <Layout>
-      <div className="min-h-screen bg-[#f5f6fb] p-3 md:p-4 xl:p-5">
-        {/* Header */}
-        <div className="mb-3 flex flex-wrap items-end justify-between gap-3 border-b border-[#e1e3ec] bg-white px-4 py-3 shadow-sm">
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#6d63d9]">Anzak Cloud · Operations overview</p>
-            <h2 className="mt-1 text-lg font-bold text-[#2d3142]">Dashboard</h2>
-          </div>
-          {inventoryShortcut}
-          <div className="border border-[#e1e3ec] bg-[#fafaff] px-3 py-1.5 text-right">
-            <p className="text-[10px] uppercase tracking-[0.18em] text-slate-500">Today</p>
-            <p className="text-sm font-semibold text-slate-800">
-              {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-            </p>
-          </div>
-        </div>
-
-        {/* Stat Cards */}
-        <div className="mb-3 grid grid-cols-2 gap-2 lg:grid-cols-4">
-          {statCards.map((card) => (
-            <div key={card.label} className={`${card.color} p-3 text-white shadow-sm transition-transform hover:-translate-y-0.5`}>
-              <div className="flex justify-between items-start gap-2">
-                <div className="min-w-0">
-                  <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-white/80">{card.label}</p>
-                  <p className="mt-2 text-2xl font-bold leading-none">{card.value}</p>
-                </div>
-                <div className="flex h-9 w-9 items-center justify-center border border-white/30 bg-white/10 text-lg">
-                  {card.icon}
-                </div>
-              </div>
-              <p className="mt-3 text-[10px] text-white/75">Live operations count</p>
-            </div>
-          ))}
-        </div>
-
-        {/* Revenue and Occupancy Row */}
-        <div className="mb-3 grid grid-cols-1 gap-3 lg:grid-cols-3">
-          {/* Revenue Card */}
-          <div className="border border-[#e1e3ec] bg-white p-4 shadow-sm">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-slate-500">Today's revenue</p>
-              <span className="inline-flex items-center rounded-full bg-emerald-50 text-emerald-700 px-2 py-1 text-[10px] font-semibold">Strong</span>
-            </div>
-            <p className="mt-3 text-3xl font-bold text-emerald-700">${data?.todayRevenue?.toLocaleString() ?? '0'}</p>
-            <div className="mt-4 pt-3 border-t border-slate-200">
-              <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-slate-500">Outstanding</p>
-              <p className="mt-2 text-xl font-bold text-red-600">${data?.outstandingBalance?.toLocaleString() ?? '0'}</p>
-            </div>
-          </div>
-
-          {/* KPIs */}
-          <div className="border border-[#e1e3ec] bg-white p-4 shadow-sm">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-slate-500">Key metrics</p>
-              <span className="inline-flex items-center rounded-full bg-blue-50 text-blue-700 px-2 py-1 text-[10px] font-semibold">30d</span>
-            </div>
-            <div className="mt-3 space-y-2.5">
-              <div className="flex justify-between items-center">
-                <span className="text-slate-600 text-sm">ADR</span>
-                <span className="font-bold text-slate-900">${advanced?.kpis?.adr ?? '0'}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-slate-600 text-sm">RevPAR</span>
-                <span className="font-bold text-blue-700">${advanced?.kpis?.revpar ?? '0'}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-slate-600 text-sm">Occupancy</span>
-                <span className="font-bold text-emerald-700">{data?.occupancy?.occupancyRate ?? '0%'}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-slate-600 text-sm">Rooms Sold</span>
-                <span className="font-bold text-slate-800">{advanced?.kpis?.roomsSold ?? '0'}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Room Status */}
-          <div className="border border-[#e1e3ec] bg-white p-4 shadow-sm">
-            <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-slate-500">Room status</p>
-            <div className="mt-3 space-y-2">
-              {[
-                { label: 'Occupied', value: data?.occupancy?.occupied, color: 'bg-green-500' },
-                { label: 'Vacant', value: data?.occupancy?.vacant, color: 'bg-blue-500' },
-                { label: 'Reserved', value: data?.occupancy?.reserved, color: 'bg-yellow-500' },
-                { label: 'Dirty', value: data?.occupancy?.dirty, color: 'bg-red-500' },
-                { label: 'Blocked', value: data?.occupancy?.blocked, color: 'bg-slate-400' },
-              ].map((item) => (
-                <div key={item.label} className="flex items-center gap-3">
-                  <div className={`w-2.5 h-2.5 rounded-full ${item.color}`} />
-                  <span className="text-slate-600 text-sm flex-1">{item.label}</span>
-                  <span className="font-bold text-slate-800">{item.value ?? 0}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="mb-2 grid grid-cols-1 gap-3 xl:grid-cols-3">
-          {/* Revenue Chart */}
-          <div className="border border-[#e1e3ec] bg-white p-4 shadow-sm xl:col-span-3">
-            <div className="mb-3 flex items-center justify-between gap-2">
-              <h3 className="text-sm font-semibold text-slate-800">Revenue — Last 14 Days</h3>
-              <span className="text-[10px] uppercase tracking-[0.14em] text-slate-500">Trend</span>
-            </div>
-            {chartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={200}>
-                <BarChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                  <XAxis dataKey="date" tick={{ fontSize: 12, fill: '#64748b' }} />
-                  <YAxis tick={{ fontSize: 12, fill: '#64748b' }} />
-                  <Tooltip
-                    contentStyle={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8 }}
-                    formatter={(value: any) => [`$${value}`, 'Revenue']}
-                  />
-                  <Bar dataKey="revenue" fill="#6d63d9" radius={[2, 2, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-48 flex items-center justify-center text-slate-400">
-                No revenue data yet
-              </div>
-            )}
-          </div>
-
-          {/* Room Status Pie Chart */}
-          <div className="border border-[#e1e3ec] bg-white p-4 shadow-sm">
-            <div className="mb-3">
-              <h3 className="text-sm font-semibold text-slate-800">Room Status</h3>
-              <p className="text-[10px] uppercase tracking-[0.14em] text-slate-500 mt-1">Total rooms: {roomStatusData.reduce((sum: number, item: any) => sum + Number(item.value ?? 0), 0)}</p>
-            </div>
-            {roomStatusData.some((item: any) => item.value > 0) ? (
-              <div className="grid grid-cols-1 lg:grid-cols-[1.3fr_0.7fr] gap-3 items-center">
-                <ResponsiveContainer width="100%" height={190}>
-                  <PieChart>
-                    <Pie
-                      data={roomStatusData}
-                      dataKey="value"
-                      nameKey="name"
-                      innerRadius={42}
-                      outerRadius={72}
-                      paddingAngle={2}
-                    >
-                      {roomStatusData.map((entry: any) => (
-                        <Cell key={entry.name} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      formatter={(value: any) => [value, 'Rooms']}
-                      contentStyle={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8 }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-
-                <div className="space-y-2">
-                  {roomStatusData.map((item: any) => (
-                    <div key={item.name} className="flex items-center justify-between gap-3 text-sm">
-                      <div className="flex items-center gap-2">
-                        <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />
-                        <span className="text-slate-600">{item.name}</span>
-                      </div>
-                      <span className="font-semibold text-slate-800">{item.value}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div className="h-48 flex items-center justify-center text-slate-400">
-                No room status data
-              </div>
-            )}
-          </div>
-
-          {/* Revenue by Payment Method Pie Chart */}
-          <div className="border border-[#e1e3ec] bg-white p-4 shadow-sm">
-            <div className="mb-3">
-              <h3 className="text-sm font-semibold text-slate-800">Revenue by Payment</h3>
-              <p className="text-[10px] uppercase tracking-[0.14em] text-slate-500 mt-1">Total revenue: ${paymentMethodData.reduce((sum: number, item: any) => sum + Number(item.value ?? 0), 0).toLocaleString()}</p>
-            </div>
-            {paymentMethodData.some((item: any) => item.value > 0) ? (
-              <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-3 items-center">
-                <ResponsiveContainer width="100%" height={190}>
-                  <PieChart>
-                    <Pie
-                      data={paymentMethodData}
-                      dataKey="value"
-                      nameKey="name"
-                      innerRadius={42}
-                      outerRadius={72}
-                      paddingAngle={2}
-                    >
-                      {paymentMethodData.map((entry: any) => (
-                        <Cell key={entry.name} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      formatter={(value: any) => [`$${value}`, 'Revenue']}
-                      contentStyle={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8 }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-
-                <div className="space-y-2">
-                  {paymentMethodData.map((item: any) => (
-                    <div key={item.name} className="flex items-center justify-between gap-3 text-sm">
-                      <div className="flex items-center gap-2">
-                        <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />
-                        <span className="text-slate-600">{item.name}</span>
-                      </div>
-                      <span className="font-semibold text-slate-800">${Number(item.value).toFixed(0)}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div className="h-48 flex items-center justify-center text-slate-400">
-                No payment revenue yet
-              </div>
-            )}
-          </div>
-
-          {/* Guest Mix Pie Chart */}
-          <div className="border border-[#e1e3ec] bg-white p-4 shadow-sm xl:col-span-3">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-slate-800">Guest Mix</h3>
-              <span className="text-[10px] uppercase tracking-[0.14em] text-slate-500">{data?.guestMetrics?.totalGuests ?? guestMixData.reduce((sum: number, item: any) => sum + Number(item.value ?? 0), 0)} guests total</span>
-            </div>
-            {guestMixData.some((item: any) => item.value > 0) ? (
-              <div className="grid grid-cols-1 lg:grid-cols-[1.3fr_0.7fr] gap-3 items-center">
-                <ResponsiveContainer width="100%" height={180}>
-                  <PieChart>
-                    <Pie
-                      data={guestMixData}
-                      dataKey="value"
-                      nameKey="name"
-                      innerRadius={42}
-                      outerRadius={72}
-                      paddingAngle={2}
-                    >
-                      {guestMixData.map((entry: any) => (
-                        <Cell key={entry.name} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      formatter={(value: any) => [value, 'Guests']}
-                      contentStyle={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8 }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-
-                <div className="space-y-2">
-                  {guestMixData.map((item: any) => (
-                    <div key={item.name} className="flex items-center justify-between gap-3 text-sm">
-                      <div className="flex items-center gap-2">
-                        <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />
-                        <span className="text-slate-600">{item.name}</span>
-                      </div>
-                      <span className="font-semibold text-slate-800">{item.value}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div className="h-48 flex items-center justify-center text-slate-400">
-                No guest mix data
-              </div>
-            )}
-          </div>
-        </div>
-        <PosStaffSales />
-      </div>
-    </Layout>
-  );
+  return <Layout><div className="hotel-dashboard">
+    <header className="hotel-dash-header"><div><p className="hotel-dash-eyebrow">Anzak Cloud · Hotel dashboard</p><h1>{current?.rooms.data?.propertyName || user?.propertyName || 'Hotel Dashboard'}</h1><p>Property Performance &amp; Daily Operations</p></div>
+      <div className="hotel-dash-header-actions"><div className="hotel-dash-date"><span>Hotel date{current?.rooms.data?.timezone ? ` · ${current.rooms.data.timezone}` : ''}</span><strong>{overview.today ? dateLabel(overview.today) : 'Unavailable'}</strong><small>Business date not supplied by the current API</small></div><button type="button" className="hotel-dash-button" disabled={loading} onClick={() => setRevision(n => n + 1)}><RefreshCw size={15}/>{loading ? 'Loading…' : 'Refresh overview'}</button></div>
+    </header>
+    <div className="hotel-dash-tools"><p role="status">{loading ? 'Loading authorized hotel records…' : `Snapshot refreshed ${current?.updated.toLocaleTimeString('en-GB', { timeZone: 'UTC', hour: '2-digit', minute: '2-digit' })} UTC · Refresh for the latest changes`}</p><div>
+      {can('view_reservations') && <Link to="/reservations" className="hotel-dash-button">Reservations <ArrowUpRight size={14}/></Link>}
+      {can('view_inventory') && <Link to="/inventory?new=item" className="hotel-dash-button">Add inventory <ArrowUpRight size={14}/></Link>}
+    </div></div>
+    {current?.rooms.error && <p role="alert" className="hotel-dash-alert">Room overview: {current.rooms.error}</p>}
+    {current?.stays.error && <p role="alert" className="hotel-dash-alert">Guest overview: {current.stays.error}</p>}
+    {metrics.length > 0 && <section className="hotel-dash-metrics" aria-label="Property summary" aria-busy={loading}>{metrics.map(({ label, value, note, icon: Icon, tone }) => <article className="hotel-dash-metric" key={label}><div><span>{label}</span><span className={`hotel-dash-icon ${tone}`}><Icon size={18}/></span></div><strong>{loading ? '…' : value}</strong><p>{note}</p></article>)}</section>}
+    <div className="hotel-dash-charts">
+      {viewRooms && <section className="hotel-dash-panel" aria-label="Current room occupancy"><div className="hotel-dash-panel-heading"><div><h2>Current room occupancy</h2><p>Room-based snapshot · {overview.today ? dateLabel(overview.today) : 'date unavailable'}</p></div><span className="hotel-dash-badge violet">Current</span></div>
+        {loading ? <p className="hotel-dash-empty">Loading room inventory…</p> : !overview.roomMix ? <p className="hotel-dash-empty">Room inventory is unavailable.</p> : !overview.totalRooms ? <p className="hotel-dash-empty">No rooms have been recorded for this hotel.</p> : <div className="hotel-dash-occupancy"><div className="hotel-dash-ring"><ResponsiveContainer width="100%" height={185}><PieChart><Pie data={overview.roomMix} dataKey="value" nameKey="name" innerRadius={57} outerRadius={77} paddingAngle={2} isAnimationActive={false}>{overview.roomMix.map(item => <Cell key={item.name} fill={item.color}/>)}</Pie><Tooltip/></PieChart></ResponsiveContainer><div aria-hidden="true"><strong>{overview.occupancyRate == null ? '—' : `${overview.occupancyRate.toFixed(1)}%`}</strong><span>sellable occupied</span></div></div><ul className="hotel-dash-legend">{overview.roomMix.map(item => <li key={item.name}><i style={{ background: item.color }}/><span>{item.name}</span><strong>{item.value}</strong></li>)}</ul></div>}
+        <p className="hotel-dash-footnote">Blocked rooms are excluded from sellable inventory. Dirty rooms may be occupied or vacant; cleanliness is not an occupancy state. Historical occupancy snapshots are not available.</p>
+      </section>}
+      <section className="hotel-dash-panel hotel-dash-trend" aria-label="Revenue trend"><div className="hotel-dash-panel-heading"><div><h2>Revenue trend</h2><p>Reliable financial reporting</p></div><TrendingUp size={20}/></div><div className="hotel-dash-empty"><span className="hotel-dash-icon neutral"><TrendingUp size={25}/></span><h3>{can('view_reports') ? 'Currency-safe trend unavailable' : 'Financial reporting is restricted'}</h3><p>{can('view_reports') ? 'The existing dashboard reports combine original payment amounts across currencies and include voided payments. Revenue, ADR and RevPAR are withheld here until a reliable reporting series is available.' : 'Your operational overview does not include financial reports.'}</p>{can('view_finance') && <Link to="/finance" className="hotel-dash-button">Open Finance <ArrowUpRight size={14}/></Link>}</div></section>
+    </div>
+    {viewStays && <><div className="hotel-dash-section-title"><div><h2>Daily front desk</h2><p>Overdue guests remain in-house until checkout is completed.</p></div></div><div className="hotel-dash-operations">
+      <StayPanel title="Today's arrivals" description="Confirmed bookings awaiting check-in" rows={overview.arrivals} loading={loading} error={current?.stays.error} empty="No arrivals awaiting check-in today."/>
+      <StayPanel title="Expected departures" description="Due out today · still checked in" rows={overview.dueOut} loading={loading} error={current?.stays.error} empty="No in-house guests are due out today."/>
+      <StayPanel title="Current in-house guests" description="All active stays, including overdue departures" rows={overview.inHouse} loading={loading} error={current?.stays.error} empty="No guests are currently checked in."/>
+    </div></>}
+    {viewRooms && <section className="hotel-dash-panel" aria-label="Rooms requiring attention"><div className="hotel-dash-panel-heading"><div><h2>Rooms requiring attention</h2><p>Dirty, blocked, unknown cleanliness or occupancy requiring review</p></div><Link to="/rooms" className="hotel-dash-button">Room view <ArrowUpRight size={14}/></Link></div>{loading ? <p className="hotel-dash-empty">Loading rooms…</p> : !overview.attention ? <p className="hotel-dash-empty">Room information is unavailable.</p> : !overview.attention.length ? <p className="hotel-dash-empty">No recorded rooms need attention.</p> : <ul className="hotel-dash-room-list">{overview.attention.map(room => <li key={room.id}><BedDouble size={18}/><div><strong>Room {room.roomNumber}</strong><small>{room.roomType?.name || 'Room type not recorded'}</small></div><span className={`hotel-dash-badge ${roomUnavailable(room) ? 'neutral' : 'amber'}`}>{roomUnavailable(room) ? 'Blocked / out of service' : room.housekeepingStatus === 'DIRTY' ? 'Dirty' : !room.housekeepingStatus ? 'Cleanliness not recorded' : 'Occupancy needs review'}</span></li>)}</ul>}</section>}
+    {(viewCleaning || viewMaintenance || can('use_pos')) && <section className="hotel-dash-services" aria-label="Operational overview">
+      {viewCleaning && <article className="hotel-dash-panel"><h2><Brush size={17}/> Housekeeping tasks</h2>{current?.cleaning.error ? <p role="alert">{current.cleaning.error}</p> : <p><strong>{loading ? '…' : count(cleaning?.open)}</strong> assigned / open · <strong>{loading ? '…' : count(cleaning?.inProgress)}</strong> in progress · <strong>{loading ? '…' : count(cleaning?.inspection)}</strong> pending managed inspection</p>}<Link to="/housekeeping">Open Housekeeping <ArrowUpRight size={14}/></Link></article>}
+      {viewMaintenance && <article className="hotel-dash-panel"><h2><Wrench size={17}/> Maintenance</h2>{current?.maintenance.error ? <p role="alert">{current.maintenance.error}</p> : <p><strong>{loading ? '…' : count(maintenance?.open)}</strong> open issues · <strong>{loading ? '…' : count(maintenance?.inProgress)}</strong> in progress</p>}<Link to="/maintenance">Review issues <ArrowUpRight size={14}/></Link></article>}
+      {can('use_pos') && <article className="hotel-dash-panel"><h2><UtensilsCrossed size={17}/> Restaurant operations</h2><p>Continue to the existing register, table and order workspace.</p><Link to="/pos">Open Restaurant POS <ArrowUpRight size={14}/></Link></article>}
+    </section>}
+    {viewPosSales && <details className="hotel-dash-panel hotel-dash-pos"><summary>Restaurant staff sales &amp; payment records</summary><PosStaffSales revision={revision}/></details>}
+  </div></Layout>;
 }

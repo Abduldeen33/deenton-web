@@ -6,7 +6,7 @@ import { can, departmentRoles } from '../store/permissions';
 const accessLevels = ['STAFF', 'SUPERVISOR', 'ASSISTANT_MANAGER', 'MANAGER'];
 const accessLevelLabel = (level: string, role: string) => level === 'MANAGER' ? 'Department Manager / Head of Department' : level === 'STAFF' ? (role === 'ACCOUNTS' ? 'Cashier' : 'Staff / Junior (view only)') : level.replaceAll('_', ' ');
 
-const roles = ['ADMIN', 'GENERAL_MANAGER', 'ASSISTANT_GENERAL_MANAGER', 'PURCHASE_MANAGER', 'DIRECTOR_OF_FINANCE', 'STOREKEEPING_MANAGER', 'CEO', 'FRONT_DESK', 'HOUSEKEEPING', 'MAINTENANCE', 'ACCOUNTS', 'RESTAURANT', 'KITCHEN', 'BAR', 'IT'];
+const roles = ['HR', 'ADMIN', 'GENERAL_MANAGER', 'ASSISTANT_GENERAL_MANAGER', 'PURCHASE_MANAGER', 'DIRECTOR_OF_FINANCE', 'STOREKEEPING_MANAGER', 'CEO', 'FRONT_DESK', 'HOUSEKEEPING', 'MAINTENANCE', 'ACCOUNTS', 'RESTAURANT', 'KITCHEN', 'BAR', 'IT'];
 
 const roleColors: any = {
   KITCHEN: 'bg-orange-50 text-orange-700 border-orange-200',
@@ -22,7 +22,9 @@ const roleColors: any = {
 
 export default function Staff() {
   const platformAdmin = ['SUPER_ADMIN', 'CEO'].includes(getUser()?.role || '');
-  const assignableRoles = platformAdmin ? [...roles, 'SUPER_ADMIN'] : roles.filter(r => r !== 'CEO');
+  const hrAccount = getUser()?.role === 'HR';
+  const normalRoles = ['FRONT_DESK','HOUSEKEEPING','MAINTENANCE','ACCOUNTS','RESTAURANT','KITCHEN','BAR','IT'];
+  const assignableRoles = platformAdmin ? [...roles, 'SUPER_ADMIN'] : normalRoles;
   const [hotels, setHotels] = useState<{ id: string; name: string; propertyCode: string }[]>([]);
   const [hotelId, setHotelId] = useState('');
   const [error, setError] = useState('');
@@ -198,14 +200,14 @@ export default function Staff() {
                     <div className="flex flex-wrap gap-2">
                       <button
                         onClick={() => handleToggle(member.id)}
-                        disabled={saving || !can('manage_staff') || (!platformAdmin && ['CEO', 'SUPER_ADMIN'].includes(member.role))}
+                        disabled={saving || !can('manage_staff') || (hrAccount && !normalRoles.includes(member.role)) || (!platformAdmin && !normalRoles.includes(member.role))}
                         className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white text-xs rounded-lg"
                       >
                         {member.isActive ? 'Deactivate' : 'Activate'}
                       </button>
                       <button
                         onClick={() => setShowReset(member.id)}
-                        disabled={saving || !can('manage_staff') || (!platformAdmin && ['CEO', 'SUPER_ADMIN'].includes(member.role))}
+                        disabled={saving || !can('manage_staff') || (hrAccount && !normalRoles.includes(member.role)) || (!platformAdmin && !normalRoles.includes(member.role))}
                         className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white text-xs rounded-lg"
                       >
                         Reset Password

@@ -2,6 +2,8 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Finance from './pages/Finance';
+import Hr from './pages/Hr';
+import MyPayslips from './pages/MyPayslips';
 import Rooms from './pages/Rooms';
 import ServicePayments from './pages/ServicePayments';
 import Reservations from './pages/Reservations';
@@ -41,16 +43,18 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
   const token = localStorage.getItem('deenton_token');
   if (!token) return <Navigate to="/login" replace />;
   const role = getUser()?.role;
+  if (pathname === '/my-payslips') return <>{children}</>;
+  if (role === 'HR' && ['/dashboard','/workspace'].includes(pathname)) return <Navigate to="/hr" replace />;
   if (pathname === '/dashboard' && ['ACCOUNTS', 'DIRECTOR_OF_FINANCE'].includes(role || '')) return <Navigate to="/finance" replace />;
   if (pathname === '/finance' && !can('view_finance')) return <div className="p-6">Finance access restricted. <a href="/dashboard">Return to dashboard</a></div>;
   if (role === 'KITCHEN' && pathname === '/workspace') return <Navigate to="/pos-queues" replace />;
   if (role === 'KITCHEN' && !can('view_pos_queue') && pathname !== '/workspace') return <Navigate to="/workspace" replace />;
   if (pathname === '/housekeeping' && !can('view_housekeeping')) return <div className="p-6">Access restricted. <a href="/dashboard">Return to dashboard</a></div>;
-  const pagePermission: Record<string, Permission> = { '/service-payments': 'view_service_payments', '/dashboard': 'view_dashboard', '/audit-logs': 'view_audit_logs', '/night-audit': 'view_night_audit', '/marketing': 'view_marketing', '/channel-manager': 'view_channels', '/ai-assistant': 'view_reports', '/inventory': 'view_inventory', '/staff': 'view_staff', '/rooms': 'view_rooms', '/reservations': 'view_reservations', '/billing': 'view_billing', '/front-desk-cash': 'view_billing', '/guests': 'view_guests', '/loyalty': 'view_guests', '/rates': 'view_rates', '/expenses': 'view_expenses', '/reports': 'view_reports', '/sales-reports': 'view_reports', '/revenue-management': 'view_reports', '/maintenance': 'view_maintenance', '/pos': 'use_pos', '/pos-queues': 'view_pos_queue' };
+  const pagePermission: Record<string, Permission> = { '/hr':'view_hr', '/service-payments': 'view_service_payments', '/dashboard': 'view_dashboard', '/audit-logs': 'view_audit_logs', '/night-audit': 'view_night_audit', '/marketing': 'view_marketing', '/channel-manager': 'view_channels', '/ai-assistant': 'view_reports', '/inventory': 'view_inventory', '/staff': 'view_staff', '/rooms': 'view_rooms', '/reservations': 'view_reservations', '/billing': 'view_billing', '/front-desk-cash': 'view_billing', '/guests': 'view_guests', '/loyalty': 'view_guests', '/rates': 'view_rates', '/expenses': 'view_expenses', '/reports': 'view_reports', '/sales-reports': 'view_reports', '/revenue-management': 'view_reports', '/maintenance': 'view_maintenance', '/pos': 'use_pos', '/pos-queues': 'view_pos_queue' };
   if (pagePermission[pathname] && !can(pagePermission[pathname])) return <div className="p-6"><h1>Access restricted</h1><p>This page is not available for your department/access level.</p><a href={can('view_dashboard') ? '/dashboard' : can('use_pos') ? '/pos' : can('view_pos_queue') ? '/pos-queues' : '/workspace'}>Return to your workspace</a></div>;
   if (role === 'KITCHEN' && !['/pos-queues', '/inventory', '/workspace'].includes(pathname)) return <Navigate to="/pos-queues" replace />;
   if (role === 'BAR' && !['/pos-queues', '/pos', '/inventory'].includes(pathname)) return <Navigate to="/pos-queues" replace />;
-  if (['GENERAL_MANAGER', 'ASSISTANT_GENERAL_MANAGER', 'PURCHASE_MANAGER', 'STOREKEEPING_MANAGER'].includes(role || '') && pathname !== '/inventory' && !(role === 'GENERAL_MANAGER' && pathname === '/service-payments')) return <Navigate to="/inventory" replace />;
+  if (['GENERAL_MANAGER', 'ASSISTANT_GENERAL_MANAGER', 'PURCHASE_MANAGER', 'STOREKEEPING_MANAGER'].includes(role || '') && pathname !== '/inventory' && !(role === 'GENERAL_MANAGER' && ['/service-payments','/hr'].includes(pathname))) return <Navigate to="/inventory" replace />;
   return <>{children}</>;
 }
 
@@ -73,6 +77,8 @@ function App() {
         <Route path="/book" element={<BookingEngine />} />
         <Route path="/super-admin" element={<SuperAdminRoute><SuperAdmin /></SuperAdminRoute>} />
         <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+        <Route path="/hr" element={<PrivateRoute><Hr /></PrivateRoute>} />
+        <Route path="/my-payslips" element={<PrivateRoute><MyPayslips /></PrivateRoute>} />
         <Route path="/finance" element={<PrivateRoute><Finance /></PrivateRoute>} />
         <Route path="/workspace" element={<PrivateRoute><Layout><section className="p-6"><h1 className="text-lg font-semibold">Staff workspace</h1><p className="mt-2 text-sm text-slate-600">Your staff account has limited, view-only access. Order queues and inventory require an authorized supervisor or manager. Contact your manager if your assigned access level is incorrect.</p></section></Layout></PrivateRoute>} />
         <Route path="/rooms" element={<PrivateRoute><Rooms /></PrivateRoute>} />
